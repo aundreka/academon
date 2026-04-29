@@ -10,6 +10,14 @@ class N8nService {
     defaultValue: 'https://witty-digital-module.onhexcorearena.com/webhook-test',
   );
 
+  static String _webhookUrl(String path) {
+    final normalizedBase = _baseUrl.endsWith('/')
+        ? _baseUrl.substring(0, _baseUrl.length - 1)
+        : _baseUrl;
+    final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+    return '$normalizedBase/$normalizedPath';
+  }
+
   static void _ensureConfigured() {
     if (_baseUrl.contains('YOUR-N8N-INSTANCE.com')) {
       throw Exception(
@@ -29,7 +37,7 @@ class N8nService {
     }
 
     final response = await http.post(
-      Uri.parse('$_baseUrl/flashcard-generate'),
+      Uri.parse(_webhookUrl('flashcard-generate')),
       headers: const {'Content-Type': 'application/json'},
       body: jsonEncode({'materialText': materialText}),
     );
@@ -90,7 +98,7 @@ class N8nService {
     _ensureConfigured();
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$_baseUrl/syllabus-upload'),
+      Uri.parse(_webhookUrl('syllabus-upload')),
     )
       ..files.add(
         http.MultipartFile.fromBytes(
@@ -130,7 +138,7 @@ class N8nService {
     _ensureConfigured();
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$_baseUrl/quiz-submit'),
+      Uri.parse(_webhookUrl('quiz-submit')),
     )
       ..fields['answers'] = jsonEncode(answers)
       ..files.add(
