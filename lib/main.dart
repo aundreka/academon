@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/theme.dart';
 import 'core/widgets/ui/bottomnav.dart';
+import 'core/widgets/ui/topnav.dart';
 import 'screens/arena.dart';
 import 'screens/home.dart';
 import 'screens/pokemons.dart';
@@ -12,8 +13,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
-    url: 'https://nntpbnmmrsjgmtjtvquc.supabase.co',
-    anonKey: 'sb_publishable_jJwgTWhLUaBzzGlvWjXcOA_2r1PSvTl',
+    url: 'https://dfyyiqntogktwmqzkttk.supabase.co',
+    anonKey: 'sb_publishable_XLJf2r9S4PJT8Ah_qh9u0w_Ps3rEK0F',
   );
 
   runApp(const AcademonApp());
@@ -55,7 +56,12 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: screens[_index],
+      body: Column(
+        children: [
+          const AppTopNav(),
+          Expanded(child: screens[_index]),
+        ],
+      ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: _index,
         onTap: (i) {
