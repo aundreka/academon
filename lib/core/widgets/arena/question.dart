@@ -93,9 +93,7 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
           .select('id')
           .single();
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _questions = questions;
@@ -108,9 +106,7 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
         _loading = false;
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _errorMessage = error.toString().replaceFirst('Exception: ', '');
         _loading = false;
@@ -119,9 +115,7 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
   }
 
   Future<void> _handleChoiceTap(String choice) async {
-    if (_submitting || _selectedChoice != null || _attemptId == null) {
-      return;
-    }
+    if (_submitting || _selectedChoice != null || _attemptId == null) return;
 
     final question = _questions[_currentIndex];
     final isCorrect = choice.trim().toLowerCase() ==
@@ -133,9 +127,7 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
     setState(() {
       _selectedChoice = choice;
       _submitting = true;
-      if (isCorrect) {
-        _score += 1;
-      }
+      if (isCorrect) _score += 1;
     });
 
     try {
@@ -148,11 +140,9 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
         'damage_dealt': isCorrect ? 10 : 0,
       });
 
-      await Future<void>.delayed(const Duration(milliseconds: 550));
+      await Future<void>.delayed(const Duration(milliseconds: 800));
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       final resolution = ArenaAnswerResolution(
         moduleId: widget.moduleId,
@@ -186,21 +176,18 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
         _questionShownAt = DateTime.now();
       });
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _submitting = false;
-        _errorMessage = 'Failed to save your answer. ${error.toString().replaceFirst('Exception: ', '')}';
+        _errorMessage =
+            'Failed to save your answer. ${error.toString().replaceFirst('Exception: ', '')}';
       });
     }
   }
 
   Future<void> _finishAttempt() async {
     final attemptId = _attemptId;
-    if (attemptId == null) {
-      return;
-    }
+    if (attemptId == null) return;
 
     final totalQuestions = _questions.length;
     final accuracy = totalQuestions == 0 ? 0.0 : _score / totalQuestions;
@@ -213,9 +200,7 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
       'completed_at': DateTime.now().toUtc().toIso8601String(),
     }).eq('id', attemptId);
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     final result = ArenaQuestionResult(
       attemptId: attemptId,
@@ -225,58 +210,51 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
       accuracy: accuracy,
     );
 
-    setState(() {
-      _submitting = false;
-    });
-
+    setState(() => _submitting = false);
     widget.onCompleted?.call(result);
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return _BattleShell(
-        child: const Center(
+      return const _PokeDialogShell(
+        child: Center(
           child: Padding(
-            padding: EdgeInsets.all(AppSpacing.lg),
-            child: CircularProgressIndicator(color: Color(0xFFFFD56A)),
+            padding: EdgeInsets.all(16),
+            child: CircularProgressIndicator(
+              color: Color(0xFF3860D8),
+              strokeWidth: 3,
+            ),
           ),
         ),
       );
     }
 
     if (_errorMessage != null) {
-      return _BattleShell(
+      return _PokeDialogShell(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.warning_amber_rounded,
-                color: Color(0xFFFF9F68),
-                size: 34,
-              ),
-              const SizedBox(height: AppSpacing.md),
               Text(
                 _errorMessage!,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(
-                  color: const Color(0xFFFFE1D1),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
                   fontSize: 13,
+                  color: Color(0xFF2C2C2C),
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
-              FilledButton(
-                onPressed: _loadQuestions,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF214A8E),
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(
-                  'Retry',
-                  style: AppTextStyles.button.copyWith(fontSize: 13),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: _loadQuestions,
+                child: const _PokeActionButton(
+                  label: 'RETRY',
+                  topColor: Color(0xFFEC6565),
+                  bottomColor: Color(0xFFA83030),
+                  textColor: Colors.white,
                 ),
               ),
             ],
@@ -286,325 +264,451 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
     }
 
     final question = _questions[_currentIndex];
-    final progress = (_currentIndex + 1) / _questions.length;
 
-    return Align(
-  alignment: Alignment.topCenter,
-  child: Padding(
-    padding: const EdgeInsets.only(top: 12, left: 12, right: 12),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [ 
-          Row(
-            children: [
-              Text(
-                'Q${_currentIndex + 1}/${_questions.length}',
-                style: AppTextStyles.button.copyWith(
-                  color: const Color(0xFFFFD56A),
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 7,
-                    backgroundColor: Colors.white.withOpacity(0.10),
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFFFFD56A),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            question.questionText,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.body.copyWith(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: question.choices.map((choice) {
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: _ChoiceTile(
-                    label: choice,
-                    compact: true,
-                    isSelected: _selectedChoice == choice,
-                    isCorrect: _selectedChoice != null &&
-                        choice.trim().toLowerCase() ==
-                            question.correctAnswer.trim().toLowerCase(),
-                    isWrongSelection: _selectedChoice == choice &&
-                        choice.trim().toLowerCase() !=
-                            question.correctAnswer.trim().toLowerCase(),
-                    isPressed: _pressedChoice == choice,
-                    enabled: !_submitting && _selectedChoice == null,
-                    onTap: () => _handleChoiceTap(choice),
-                    onPressedStateChanged: (pressed) {
-                      if (!mounted || _selectedChoice != null || _submitting) {
-                        return;
-                      }
-                      setState(() {
-                        _pressedChoice = pressed ? choice : null;
-                      });
-                    },
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          if (_selectedChoice != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              question.explanation?.trim().isNotEmpty == true
-                  ? question.explanation!.trim()
-                  : (_selectedChoice!.trim().toLowerCase() ==
-                          question.correctAnswer.trim().toLowerCase()
-                      ? 'Correct.'
-                      : 'Correct answer: ${question.correctAnswer}.'),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.body.copyWith(
-                color: const Color(0xFFD7F5FF),
-                fontSize: 11,
-                height: 1.25,
-              ),
-            ),
-          ],
-        ],
-      ),
-    ),
-
-);
-  }
-  
-}
-
-class _ChoiceTile extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final bool isCorrect;
-  final bool isWrongSelection;
-  final bool isPressed;
-  final bool enabled;
-  final bool compact;
-  final VoidCallback onTap;
-  final ValueChanged<bool> onPressedStateChanged;
-
-  const _ChoiceTile({
-    required this.label,
-    required this.isSelected,
-    required this.isCorrect,
-    required this.isWrongSelection,
-    required this.isPressed,
-    required this.enabled,
-    required this.onTap,
-    required this.onPressedStateChanged,
-      this.compact = false,
-
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Color borderColor;
-    final List<Color> gradientColors;
-
-    if (isCorrect) {
-      borderColor = const Color(0xFF7CFFB2);
-      gradientColors = const [
-        Color(0xFF1B5B4A),
-        Color(0xFF24926A),
-      ];
-    } else if (isWrongSelection) {
-      borderColor = const Color(0xFFFF8B87);
-      gradientColors = const [
-        Color(0xFF60273B),
-        Color(0xFF8F3745),
-      ];
-    } else {
-      borderColor = const Color(0xFF5F78B8);
-      gradientColors = const [
-        Color(0xFF182548),
-        Color(0xFF253868),
-      ];
+    // Determine explanation text shown after answering
+    String? explanationText;
+    if (_selectedChoice != null) {
+      final isCorrect = _selectedChoice!.trim().toLowerCase() ==
+          question.correctAnswer.trim().toLowerCase();
+      if (question.explanation?.trim().isNotEmpty == true) {
+        explanationText = question.explanation!.trim();
+      } else {
+        explanationText =
+            isCorrect ? 'That\'s right!' : 'The answer was ${question.correctAnswer}.';
+      }
     }
 
-    final scale = isPressed ? 0.97 : 1.0;
-    final glowColor = isSelected
-        ? borderColor.withOpacity(0.28)
-        : Colors.black.withOpacity(0.18);
-
-    return AnimatedScale(
-      scale: scale,
-      duration: const Duration(milliseconds: 120),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          onTapDown: enabled ? (_) => onPressedStateChanged(true) : null,
-          onTapCancel: enabled ? () => onPressedStateChanged(false) : null,
-          onTapUp: enabled ? (_) => onPressedStateChanged(false) : null,
-          borderRadius: BorderRadius.circular(18),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 8 : AppSpacing.md,
-                vertical: compact ? 10 : AppSpacing.md,
-              ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: gradientColors,
-              ),
-              border: Border.all(color: borderColor, width: 1.4),
-              boxShadow: [
-                BoxShadow(
-                  color: glowColor,
-                  blurRadius: isSelected ? 18 : 12,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-           child: compact
-    ? Text(
-        label,
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: AppTextStyles.button.copyWith(
-          fontSize: 11,
-          color: Colors.white,
-        ),
-      )
-    : Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.10),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.16),
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              isCorrect
-                  ? Icons.check_rounded
-                  : isWrongSelection
-                      ? Icons.close_rounded
-                      : Icons.play_arrow_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              label,
-              style: AppTextStyles.button.copyWith(
-                fontSize: 14,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-          ),
-        ),
-      ),
+    return _PokeBattleBox(
+      questionText: _selectedChoice != null
+          ? (explanationText ?? '')
+          : question.questionText,
+      questionIndex: _currentIndex,
+      totalQuestions: _questions.length,
+      choices: question.choices,
+      selectedChoice: _selectedChoice,
+      pressedChoice: _pressedChoice,
+      correctAnswer: question.correctAnswer,
+      submitting: _submitting,
+      onChoiceTap: _handleChoiceTap,
+      onPressedStateChanged: (choice, pressed) {
+        if (!mounted || _selectedChoice != null || _submitting) return;
+        setState(() => _pressedChoice = pressed ? choice : null);
+      },
     );
   }
 }
 
-class _BattleShell extends StatelessWidget {
-  final Widget child;
+// ---------------------------------------------------------------------------
+// Pokemon-style Battle Box — the main layout
+// ---------------------------------------------------------------------------
 
-  const _BattleShell({
-    required this.child,
+class _PokeBattleBox extends StatelessWidget {
+  final String questionText;
+  final int questionIndex;
+  final int totalQuestions;
+  final List<String> choices;
+  final String? selectedChoice;
+  final String? pressedChoice;
+  final String correctAnswer;
+  final bool submitting;
+  final ValueChanged<String> onChoiceTap;
+  final void Function(String choice, bool pressed) onPressedStateChanged;
+
+  const _PokeBattleBox({
+    required this.questionText,
+    required this.questionIndex,
+    required this.totalQuestions,
+    required this.choices,
+    required this.selectedChoice,
+    required this.pressedChoice,
+    required this.correctAnswer,
+    required this.submitting,
+    required this.onChoiceTap,
+    required this.onPressedStateChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Pad choices to exactly 4 slots for the 2x2 grid
+    final paddedChoices = List<String?>.from(choices);
+    while (paddedChoices.length < 4) {
+      paddedChoices.add(null);
+    }
+
+    // Define the 4 button colors — no green or red (reserved for correct/wrong feedback)
+    const buttonDefs = [
+      _PokeButtonDef(
+        topColor: Color(0xFF5AABEC),
+        bottomColor: Color(0xFF2E5FA8),
+        textColor: Colors.white,
+      ),
+      _PokeButtonDef(
+        topColor: Color(0xFFD4903A),
+        bottomColor: Color(0xFF8C5A18),
+        textColor: Colors.white,
+      ),
+      _PokeButtonDef(
+        topColor: Color(0xFF9B6FD4),
+        bottomColor: Color(0xFF5E3A9A),
+        textColor: Colors.white,
+      ),
+      _PokeButtonDef(
+        topColor: Color(0xFF3ABCB8),
+        bottomColor: Color(0xFF1E7A77),
+        textColor: Colors.white,
+      ),
+    ];
+
+    return IntrinsicHeight(
+      child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Left: Question dialog box (larger)
+        Expanded(
+          flex: 5,
+          child: _PokeDialogShell(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Progress indicator: small dots or text
+                  Text(
+                    'Q${questionIndex + 1}/$totalQuestions',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      color: Color(0xFF777777),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    questionText,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 14,
+                      color: Color(0xFF1A1A1A),
+                      fontWeight: FontWeight.bold,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 4),
+
+        // Right: 2×2 button grid
+        Expanded(
+          flex: 4,
+          child: _PokeButtonGrid(
+            choices: paddedChoices,
+            buttonDefs: buttonDefs,
+            selectedChoice: selectedChoice,
+            pressedChoice: pressedChoice,
+            correctAnswer: correctAnswer,
+            submitting: submitting,
+            onChoiceTap: onChoiceTap,
+            onPressedStateChanged: onPressedStateChanged,
+          ),
+        ),
+      ],
+    ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2×2 button grid
+// ---------------------------------------------------------------------------
+
+class _PokeButtonGrid extends StatelessWidget {
+  final List<String?> choices;
+  final List<_PokeButtonDef> buttonDefs;
+  final String? selectedChoice;
+  final String? pressedChoice;
+  final String correctAnswer;
+  final bool submitting;
+  final ValueChanged<String> onChoiceTap;
+  final void Function(String choice, bool pressed) onPressedStateChanged;
+
+  const _PokeButtonGrid({
+    required this.choices,
+    required this.buttonDefs,
+    required this.selectedChoice,
+    required this.pressedChoice,
+    required this.correctAnswer,
+    required this.submitting,
+    required this.onChoiceTap,
+    required this.onPressedStateChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-borderRadius: BorderRadius.circular(0),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0B1020),
-            Color(0xFF142347),
-            Color(0xFF1F3564),
-          ],
-        ),
-        border: Border.all(
-          color: const Color(0xFF89DFFF).withOpacity(0.18),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF07101F).withOpacity(0.42),
-            blurRadius: 28,
-            offset: const Offset(0, 16),
-          ),
-        ],
+        // Outer border matches the dialog box style
+        color: const Color(0xFFF0F0F0),
+        border: Border.all(color: const Color(0xFF2C2C2C), width: 2.5),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Stack(
+      padding: const EdgeInsets.all(5),
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Positioned(
-            top: -18,
-            right: -8,
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    Color(0x33FFD56A),
-                    Color(0x00FFD56A),
-                  ],
-                ),
-              ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _buildButton(0)),
+                const SizedBox(width: 4),
+                Expanded(child: _buildButton(1)),
+              ],
             ),
           ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withOpacity(0.04),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _buildButton(2)),
+                const SizedBox(width: 4),
+                Expanded(child: _buildButton(3)),
+              ],
             ),
           ),
-          child,
         ],
       ),
     );
   }
+
+  Widget _buildButton(int index) {
+    if (index >= choices.length || choices[index] == null) {
+      return const SizedBox.shrink();
+    }
+
+    final choice = choices[index]!;
+    final def = buttonDefs[index % buttonDefs.length];
+    final answered = selectedChoice != null;
+    final isSelected = selectedChoice == choice;
+    final isThisCorrect = choice.trim().toLowerCase() == correctAnswer.trim().toLowerCase();
+    final isWrongSelection = isSelected && !isThisCorrect;
+    final isPressed = pressedChoice == choice;
+    final enabled = !submitting && !answered;
+
+    Color resolvedTop;
+    Color resolvedBottom;
+
+    if (!answered) {
+      resolvedTop = def.topColor;
+      resolvedBottom = def.bottomColor;
+    } else if (isWrongSelection) {
+      resolvedTop = const Color(0xFFEC6565);
+      resolvedBottom = const Color(0xFFA83030);
+    } else if (isThisCorrect) {
+      resolvedTop = const Color(0xFF5ABF6A);
+      resolvedBottom = const Color(0xFF2E7A3C);
+    } else {
+      resolvedTop = const Color(0xFF9E9E9E);
+      resolvedBottom = const Color(0xFF616161);
+    }
+
+    return _PokeActionButton(
+      label: choice,
+      topColor: resolvedTop,
+      bottomColor: resolvedBottom,
+      textColor: Colors.white,
+      isPressed: isPressed,
+      isSelected: isSelected,
+      enabled: enabled,
+      onTap: enabled ? () => onChoiceTap(choice) : null,
+      onPressedChanged: enabled
+          ? (pressed) => onPressedStateChanged(choice, pressed)
+          : null,
+    );
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Individual Pokémon-style action button
+// ---------------------------------------------------------------------------
+
+class _PokeButtonDef {
+  final Color topColor;
+  final Color bottomColor;
+  final Color textColor;
+
+  const _PokeButtonDef({
+    required this.topColor,
+    required this.bottomColor,
+    required this.textColor,
+  });
+}
+
+class _PokeActionButton extends StatelessWidget {
+  final String label;
+  final Color topColor;
+  final Color bottomColor;
+  final Color textColor;
+  final bool isPressed;
+  final bool isSelected;
+  final bool enabled;
+  final VoidCallback? onTap;
+  final ValueChanged<bool>? onPressedChanged;
+
+  const _PokeActionButton({
+    required this.label,
+    required this.topColor,
+    required this.bottomColor,
+    required this.textColor,
+    this.isPressed = false,
+    this.isSelected = false,
+    this.enabled = true,
+    this.onTap,
+    this.onPressedChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // When pressed: shift content down slightly (GBA button feel)
+    final verticalShift = isPressed ? 2.0 : 0.0;
+
+    return GestureDetector(
+      onTap: onTap,
+      onTapDown: (_) => onPressedChanged?.call(true),
+      onTapUp: (_) => onPressedChanged?.call(false),
+      onTapCancel: () => onPressedChanged?.call(false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        curve: Curves.easeOut,
+        child: Stack(
+          children: [
+            // Shadow/bottom layer (darker color — gives 3D effect)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              decoration: BoxDecoration(
+                color: bottomColor,
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: Colors.black.withOpacity(0.35),
+                  width: 1.5,
+                ),
+              ),
+              child: const SizedBox(height: 14), // placeholder height
+            ),
+            // Top face (shifts down when pressed)
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 80),
+              padding: EdgeInsets.only(bottom: isPressed ? 0 : 3),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: isPressed ? 9 : 6,
+                ),
+                decoration: BoxDecoration(
+                  color: topColor,
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(
+                    color: Colors.black.withOpacity(0.30),
+                    width: 1.5,
+                  ),
+                  // Subtle highlight on top-left edge
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withOpacity(0.25),
+                      topColor,
+                      bottomColor.withOpacity(0.6),
+                    ],
+                    stops: const [0.0, 0.4, 1.0],
+                  ),
+                ),
+                child: Text(
+                  label.toUpperCase(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                    letterSpacing: 0.3,
+                    shadows: const [
+                      Shadow(
+                        color: Colors.black45,
+                        offset: Offset(0, 1),
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pokémon-style white dialog shell with thick rounded border
+// ---------------------------------------------------------------------------
+
+class _PokeDialogShell extends StatelessWidget {
+  final Widget child;
+
+  const _PokeDialogShell({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        // Crisp white background like the GBA dialog
+        color: const Color(0xFFF8F8F8),
+        borderRadius: BorderRadius.circular(10),
+        // Two-tone border: outer dark, inner light — classic Pokémon panel look
+        border: Border.all(
+          color: const Color(0xFF2C2C2C),
+          width: 3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 0,
+            offset: const Offset(3, 3),
+          ),
+        ],
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(
+            color: const Color(0xFFAAAAAA),
+            width: 1.5,
+          ),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Data models & enums (unchanged)
+// ---------------------------------------------------------------------------
 
 class _ArenaStudyQuestion {
   final String id;
