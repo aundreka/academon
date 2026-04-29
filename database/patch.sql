@@ -230,6 +230,7 @@ values
     null,
     null,
     null,
+    null,
     now()
   ),
   (
@@ -559,6 +560,7 @@ values
     0,
     1.50,
     3,
+    null,
     null,
     null,
     null,

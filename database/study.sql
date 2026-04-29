@@ -16,6 +16,7 @@ create table modules (
   summary text,
   status text not null default 'processing'
     check (status in ('processing', 'ready', 'failed', 'completed')),
+  last_used_at timestamptz,
 
   created_at timestamptz default now(),
   updated_at timestamptz default now()

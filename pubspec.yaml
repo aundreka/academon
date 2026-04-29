@@ -23,7 +23,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-   - assets/pokemons/
+    - assets/pokemons/
+    - assets/bg/
+    - assets/logo/
+    - assets/ui/
   fonts:
     - family: Inter
       fonts:

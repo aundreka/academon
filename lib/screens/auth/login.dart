@@ -16,6 +16,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const _logoAsset = 'assets/logo/logo.png';
+
   final identifier = TextEditingController();
   final password = TextEditingController();
 
@@ -153,10 +155,9 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.lock_outline,
-                    size: 40,
-                    color: AppColors.accent,
+                  Image.asset(
+                    _logoAsset,
+                    height: 56,
                   ),
                   const SizedBox(height: 10),
                   Text('Enter the Arena', style: AppTextStyles.title),

@@ -177,7 +177,7 @@ class _DailyOffersSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 264,
+      height: 236,
       child: ScrollConfiguration(
         behavior: const _DesktopFriendlyScrollBehavior(),
         child: ListView.separated(
@@ -225,13 +225,7 @@ class _OfferTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 188,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.sm,
-        AppSpacing.sm,
-        AppSpacing.sm,
-        AppSpacing.sm,
-      ),
+      width: 178,
       decoration: BoxDecoration(
         color: const Color(0xFF182544).withOpacity(0.9),
         borderRadius: BorderRadius.circular(24),
@@ -244,83 +238,242 @@ class _OfferTile extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFD166).withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '50% OFF',
-                  style: AppTextStyles.body.copyWith(
-                    color: const Color(0xFFFFD166),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Center(
-            child: offer.item.itemType == InventoryItemType.egg
-                ? EggCard(
-                    item: offer.item,
-                    width: 108,
-                    height: 120,
-                    onTap: onTap,
-                  )
-                : ItemCard(
-                    item: offer.item,
-                    width: 108,
-                    height: 138,
-                    onTap: onTap,
-                  ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            offer.item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.button.copyWith(fontSize: 13),
-          ),
-          if (offer.item.itemType == InventoryItemType.egg) ...[
-            const SizedBox(height: 2),
-            Text(
-              (offer.item.eggRarity ?? EggRarity.common).label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.body.copyWith(
-                color: const Color(0xFFB6C8F9),
-                fontWeight: FontWeight.w800,
-                fontSize: 10,
-              ),
+          Expanded(
+            child: _OfferArt(
+              item: offer.item,
+              onTap: onTap,
             ),
-          ],
-          const SizedBox(height: AppSpacing.xs),
-          _OfferPriceRow(
-            label: 'Coins',
-            current: offer.discountedCoins,
-            original: offer.item.coinValue,
-            color: const Color(0xFFFFC857),
-            icon: Icons.monetization_on_rounded,
           ),
-          const SizedBox(height: 2),
-          _OfferPriceRow(
-            label: 'Diamonds',
-            current: offer.discountedDiamonds,
-            original: offer.item.diamondValue,
-            color: const Color(0xFF61D0FF),
-            icon: Icons.diamond_rounded,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.sm,
+              AppSpacing.xs,
+              AppSpacing.sm,
+              AppSpacing.sm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  offer.item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.button.copyWith(fontSize: 13),
+                ),
+                if (offer.item.itemType == InventoryItemType.egg) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    (offer.item.eggRarity ?? EggRarity.common).label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.body.copyWith(
+                      color: const Color(0xFFB6C8F9),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 2),
+                _OfferPriceRow(
+                  label: 'Coins',
+                  current: offer.discountedCoins,
+                  original: offer.item.coinValue,
+                  color: const Color(0xFFFFC857),
+                  icon: Icons.monetization_on_rounded,
+                ),
+                const SizedBox(height: 2),
+                _OfferPriceRow(
+                  label: 'Diamonds',
+                  current: offer.discountedDiamonds,
+                  original: offer.item.diamondValue,
+                  color: const Color(0xFF61D0FF),
+                  icon: Icons.diamond_rounded,
+                ),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OfferArt extends StatelessWidget {
+  final InventoryItem item;
+  final VoidCallback onTap;
+
+  const _OfferArt({
+    required this.item,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(24),
+          bottom: Radius.circular(18),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(24),
+            bottom: Radius.circular(18),
+          ),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+                bottom: Radius.circular(18),
+              ),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: _previewColors(item),
+              ),
+            ),
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2E3F).withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '50% OFF',
+                      style: AppTextStyles.body.copyWith(
+                        color: const Color(0xFFFFD166),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: -14,
+                  right: -10,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.12),
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: _OfferImage(item: item),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Color> _previewColors(InventoryItem item) {
+    if (item.itemType == InventoryItemType.egg) {
+      switch (item.eggRarity ?? EggRarity.common) {
+        case EggRarity.common:
+          return const [Color(0xFF8A531F), Color(0xFFD9853A)];
+        case EggRarity.uncommon:
+          return const [Color(0xFF3B7F45), Color(0xFF82D46F)];
+        case EggRarity.rare:
+          return const [Color(0xFF275FA7), Color(0xFF65B7FF)];
+        case EggRarity.ultraRare:
+          return const [Color(0xFF5B49A8), Color(0xFFA68BFF)];
+        case EggRarity.legendary:
+          return const [Color(0xFFE56A4A), Color(0xFFFFD166)];
+      }
+    }
+
+    switch (item.category) {
+      case ItemCategory.progression:
+        return const [Color(0xFF9B7BFF), Color(0xFF5136B3)];
+      case ItemCategory.boost:
+        return const [Color(0xFFFFA756), Color(0xFFAA5E21)];
+      case ItemCategory.potion:
+        return const [Color(0xFF57D18C), Color(0xFF217A4D)];
+      case ItemCategory.ticket:
+        return const [Color(0xFF5AB8FF), Color(0xFF245DA6)];
+      case ItemCategory.special:
+        return const [Color(0xFFFF7E9E), Color(0xFFA52B5A)];
+      case ItemCategory.support:
+        return const [Color(0xFF6ED0C3), Color(0xFF28796F)];
+      case ItemCategory.access:
+        return const [Color(0xFFFFD45D), Color(0xFF9A7717)];
+      case ItemCategory.consumable:
+        return const [Color(0xFF7E9BFF), Color(0xFF3650AF)];
+    }
+  }
+}
+
+class _OfferImage extends StatelessWidget {
+  final InventoryItem item;
+
+  const _OfferImage({
+    required this.item,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final path = _normalizedAssetPath(item.imagePath);
+    if (path.isEmpty) {
+      return _OfferFallback(label: item.name);
+    }
+
+    return Image.asset(
+      path,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) => _OfferFallback(label: item.name),
+    );
+  }
+
+  String _normalizedAssetPath(String path) {
+    if (path.isEmpty) {
+      return '';
+    }
+    if (path.startsWith('assets/')) {
+      return path;
+    }
+    if (path.startsWith('items/')) {
+      return 'assets/$path';
+    }
+    return path;
+  }
+}
+
+class _OfferFallback extends StatelessWidget {
+  final String label;
+
+  const _OfferFallback({
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.substring(0, 1).toUpperCase(),
+      style: AppTextStyles.title.copyWith(
+        fontSize: 30,
+        color: AppColors.textPrimary,
       ),
     );
   }
@@ -541,8 +694,20 @@ class _DailyOffer {
 List<_DailyOffer> _buildDailyOffers(List<InventoryItem> catalog) {
   final now = DateTime.now();
   final seed = (now.year * 10000) + (now.month * 100) + now.day;
-  final shuffled = [...catalog]..shuffle(Random(seed));
-  final picks = shuffled.take(3);
+  final random = Random(seed);
+  final eggs = catalog
+      .where((item) => item.itemType == InventoryItemType.egg)
+      .toList()
+    ..shuffle(random);
+  final items = catalog
+      .where((item) => item.itemType != InventoryItemType.egg)
+      .toList()
+    ..shuffle(random);
+
+  final picks = <InventoryItem>[
+    if (eggs.isNotEmpty) eggs.first,
+    ...items.take(2),
+  ]..shuffle(random);
 
   return picks
       .map(

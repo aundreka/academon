@@ -15,6 +15,8 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  static const _logoAsset = 'assets/logo/logo.png';
+
   final username = TextEditingController();
   final email = TextEditingController();
   final password = TextEditingController();
@@ -151,10 +153,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.person_add,
-                    size: 40,
-                    color: AppColors.accent,
+                  Image.asset(
+                    _logoAsset,
+                    height: 56,
                   ),
                   const SizedBox(height: 10),
                   Text('Join the Academy', style: AppTextStyles.title),

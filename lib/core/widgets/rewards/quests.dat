@@ -1,0 +1,2 @@
+Flutter widgets cannot be imported from a .dat file.
+The quests popup implementation lives in lib/core/widgets/rewards/quests.dart.
