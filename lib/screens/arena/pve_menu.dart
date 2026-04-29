@@ -4,8 +4,8 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
 
-class PvpScreen extends StatelessWidget {
-  const PvpScreen({super.key});
+class PveScreen extends StatelessWidget {
+  const PveScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +13,7 @@ class PvpScreen extends StatelessWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          'Battle',
+          'Train',
           style: AppTextStyles.button,
         ),
         backgroundColor: AppColors.card,
@@ -22,7 +22,7 @@ class PvpScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Text(
-            'PvP battle queue coming next.',
+            'PvE training ground coming next.',
             style: AppTextStyles.body.copyWith(
               fontSize: 14,
               color: AppColors.textPrimary,
