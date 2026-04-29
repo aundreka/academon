@@ -5,7 +5,7 @@ import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
 import '../../core/widgets/ui/bottomnav.dart';
 import '../../core/widgets/ui/topnav.dart';
-import '../../main.dart';
+import '../../app_shell.dart';
 
 class FlashcardScreen extends StatelessWidget {
   const FlashcardScreen({super.key});

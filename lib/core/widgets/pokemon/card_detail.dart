@@ -219,9 +219,11 @@ class _PlayableCard extends StatelessWidget {
                       end: Alignment.bottomRight,
                       colors: isLegendary
                           ? [
-                              Colors.white.withOpacity(0.22),
-                              const Color(0xFFFF80AB).withOpacity(0.12),
-                              const Color(0xFF80D8FF).withOpacity(0.10),
+                              Colors.white.withOpacity(0.26),
+                              const Color(0xFFFF80AB).withOpacity(0.14),
+                              const Color(0xFFFFD93D).withOpacity(0.12),
+                              const Color(0xFF80D8FF).withOpacity(0.12),
+                              const Color(0xFF7C4DFF).withOpacity(0.10),
                               Colors.transparent,
                             ]
                           : [
@@ -230,8 +232,28 @@ class _PlayableCard extends StatelessWidget {
                               Colors.transparent,
                             ],
                       stops: isLegendary
-                          ? const [0.0, 0.22, 0.48, 0.82]
+                          ? const [0.0, 0.18, 0.38, 0.56, 0.72, 0.92]
                           : const [0.0, 0.32, 0.82],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (isLegendary)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    gradient: SweepGradient(
+                      colors: [
+                        const Color(0xFFFF6B6B).withOpacity(0.10),
+                        const Color(0xFFFFD93D).withOpacity(0.10),
+                        const Color(0xFF6BFF95).withOpacity(0.10),
+                        const Color(0xFF59D8FF).withOpacity(0.10),
+                        const Color(0xFF7C4DFF).withOpacity(0.10),
+                        const Color(0xFFFF6B6B).withOpacity(0.10),
+                      ],
                     ),
                   ),
                 ),
@@ -242,12 +264,25 @@ class _PlayableCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  pokemon.name,
-                  style: AppTextStyles.title.copyWith(
-                    fontSize: 22,
-                    color: palette.shadow,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        pokemon.name,
+                        style: AppTextStyles.title.copyWith(
+                          fontSize: 22,
+                          color: palette.shadow,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    _RarityBadge(
+                      label: _raritySymbol(pokemon.rarity),
+                      rarity: pokemon.rarity,
+                      color: palette.shadow,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Wrap(
@@ -329,26 +364,16 @@ class _PlayableCard extends StatelessWidget {
                         Positioned(
                           top: AppSpacing.md,
                           right: AppSpacing.md,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _RarityBadge(
-                                label: _raritySymbol(pokemon.rarity),
-                                rarity: pokemon.rarity,
+                          child: _OverlayStatsGroup(
+                            alignment: CrossAxisAlignment.end,
+                            tiles: [
+                              _OverlayStat(
+                                label: 'DEF',
+                                value: '${pokemon.baseDefense}',
                               ),
-                              const SizedBox(width: AppSpacing.sm),
-                              _OverlayStatsGroup(
-                                alignment: CrossAxisAlignment.end,
-                                tiles: [
-                                  _OverlayStat(
-                                    label: 'DEF',
-                                    value: '${pokemon.baseDefense}',
-                                  ),
-                                  _OverlayStat(
-                                    label: 'SPD',
-                                    value: '${pokemon.baseSpeed}',
-                                  ),
-                                ],
+                              _OverlayStat(
+                                label: 'SPD',
+                                value: '${pokemon.baseSpeed}',
                               ),
                             ],
                           ),
@@ -438,7 +463,10 @@ class _PlayableCard extends StatelessWidget {
             ],
           ),
         ),
-        child: cardContent,
+        child: CustomPaint(
+          painter: _LegendaryBorderPainter(),
+          child: cardContent,
+        ),
       );
     }
 
@@ -633,10 +661,12 @@ class _AbilityTile extends StatelessWidget {
 class _RarityBadge extends StatelessWidget {
   final String label;
   final String rarity;
+  final Color color;
 
   const _RarityBadge({
     required this.label,
     required this.rarity,
+    required this.color,
   });
 
   @override
@@ -645,61 +675,73 @@ class _RarityBadge extends StatelessWidget {
     final isLegendary = lower == 'legendary';
     final isUltraRare = lower == 'ultra rare';
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        gradient: isLegendary
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFF6B6B),
-                  Color(0xFFFFD93D),
-                  Color(0xFF59D8FF),
-                  Color(0xFF7C4DFF),
-                ],
-              )
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isUltraRare
-                    ? const [
-                        Color(0xFFFFF0A8),
-                        Color(0xFFFFC94A),
-                      ]
-                    : const [
-                        Color(0x99000000),
-                        Color(0x66000000),
-                      ],
-              ),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: (isLegendary
-                    ? const Color(0xFF7C4DFF)
-                    : isUltraRare
-                        ? const Color(0xFFFFC94A)
-                        : Colors.black)
-                .withOpacity(0.22),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.button.copyWith(
-          fontSize: 12,
-          color: isLegendary || isUltraRare
-              ? const Color(0xFF111827)
-              : AppColors.textPrimary,
-        ),
+    final rarityText = Text(
+      label,
+      style: AppTextStyles.title.copyWith(
+        fontSize: 30,
+        color: isLegendary ? Colors.white : color,
+        shadows: isLegendary
+            ? const [
+                Shadow(color: Color(0xFFFF6B6B), blurRadius: 10),
+                Shadow(color: Color(0xFFFFD93D), blurRadius: 18),
+                Shadow(color: Color(0xFF59D8FF), blurRadius: 26),
+                Shadow(color: Color(0xFF7C4DFF), blurRadius: 34),
+              ]
+            : isUltraRare
+                ? [
+                    Shadow(
+                      color: color.withOpacity(0.28),
+                      blurRadius: 12,
+                    ),
+                  ]
+                : null,
       ),
     );
+
+    if (isLegendary) {
+      return ShaderMask(
+        shaderCallback: (bounds) => const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFF6B6B),
+            Color(0xFFFFD93D),
+            Color(0xFF59D8FF),
+            Color(0xFF7C4DFF),
+          ],
+        ).createShader(bounds),
+        child: rarityText,
+      );
+    }
+
+    return rarityText;
   }
+}
+
+class _LegendaryBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(28));
+    final paint = Paint()
+      ..shader = const SweepGradient(
+        colors: [
+          Color(0xFFFF6B6B),
+          Color(0xFFFFD93D),
+          Color(0xFF6BFF95),
+          Color(0xFF59D8FF),
+          Color(0xFF7C4DFF),
+          Color(0xFFFF6B6B),
+        ],
+      ).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+
+    canvas.drawRRect(rrect.deflate(1.25), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _TypePalette {
