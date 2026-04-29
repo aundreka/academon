@@ -49,24 +49,6 @@ create table pokemon_team_members (
 -- BATTLE HISTORY
 -- =========================
 
-create table battle_history (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references profiles(id) on delete cascade,
-
-  opponent_name text not null,
-  battle_type text not null check (battle_type in ('pve', 'pvp', 'ranked')),
-  won boolean not null default false,
-  ticket_item_id text references inventory_items(id) on delete set null,
-  ticket_cost int not null default 0 check (ticket_cost >= 0),
-  xp_boost_effect_id uuid,
-  xp_multiplier_applied numeric(6,2) not null default 1.00,
-
-  xp_earned int not null default 0,
-  coins_earned int not null default 0,
-
-  battled_at timestamptz not null default now()
-);
-
 create table user_item_effects (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
@@ -82,9 +64,23 @@ create table user_item_effects (
   updated_at timestamptz not null default now()
 );
 
-alter table battle_history
-  add constraint battle_history_xp_boost_effect_fk
-  foreign key (xp_boost_effect_id) references user_item_effects(id) on delete set null;
+create table battle_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+
+  opponent_name text not null,
+  battle_type text not null check (battle_type in ('pve', 'pvp', 'ranked')),
+  won boolean not null default false,
+  ticket_item_id text references inventory_items(id) on delete set null,
+  ticket_cost int not null default 0 check (ticket_cost >= 0),
+  xp_boost_effect_id uuid references user_item_effects(id) on delete set null,
+  xp_multiplier_applied numeric(6,2) not null default 1.00,
+
+  xp_earned int not null default 0,
+  coins_earned int not null default 0,
+
+  battled_at timestamptz not null default now()
+);
 
 -- =========================
 -- ROW LEVEL SECURITY
