@@ -19,9 +19,6 @@ class Pokemon {
   /// Flat ability list used by older seed data.
   final List<Ability> abilities;
 
-  /// Abilities grouped by evolution stage
-  final Map<int, List<Ability>> abilitiesByEvolution;
-
   const Pokemon({
     required this.id,
     required this.name,
@@ -35,11 +32,5 @@ class Pokemon {
     required this.imagePath,
     required this.description,
     this.abilities = const [],
-    this.abilitiesByEvolution = const {},
   });
-
-  /// Helper to get abilities based on current evolution
-  List<Ability> getAbilities() {
-    return abilitiesByEvolution[evolution] ?? abilities;
-  }
 }
