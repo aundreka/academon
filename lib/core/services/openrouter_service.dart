@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class OpenRouterService {
-  static const String _apiKey = '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'; // 🔴 PUT YOUR KEY HERE
+  static const String _apiKey = 'sk-or-v1-blablabla'; // 🔴 PUT YOUR KEY HERE
   static const String _apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
   
   // You can change this to 'meta-llama/llama-3-70b-instruct', 'openai/gpt-3.5-turbo', etc.
