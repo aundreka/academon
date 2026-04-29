@@ -1,17 +1,58 @@
-# academon
+# Academon
 
-A new Flutter project.
+A **gamified studying RPG** where learning isn't a chore—it's how you win.
 
-## Getting Started
+Collect creatures, battle enemies through quizzes, and compete against other players in PvP. Every correct answer makes you stronger.
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## Core Concept
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Academon transforms studying into a **gacha-based battle game**:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Upload a lesson or choose a topic
+- AI generates study material + quizzes
+- Complete quizzes to **battle enemies**
+- Earn and level up **creatures**
+- Fight other players in **PvP quiz battles**
+
+> Knowledge = Power
+
+---
+
+## Features
+
+### AI-Powered Learning
+- Generate lessons from any topic or uploaded module
+- Auto-generated quizzes based on difficulty
+- Adaptive content based on performance
+
+### Creature System (Gacha)
+- Hatch creatures from completed modules
+- Rarity system (Common → Legendary)
+- Unique abilities (attack, defense, utility)
+
+### Battle System
+
+#### PvE (Player vs AI)
+- Answer questions to attack enemies
+- Faster answers = stronger attacks
+- Wrong answers = weak or failed attacks
+
+#### PvP (Player vs Player)
+- Real-time quiz battles
+- Both players answer the same questions
+- Speed + accuracy determines damage
+- Teams of up to 5 creatures
+
+### Progression
+- Level up creatures through studying
+- Improve stats and unlock abilities
+- Build optimized teams
+
+### Strategy Layer
+- Choose topics strategically
+- Use abilities (hints, shields, harder questions for opponent)
+- Balance speed vs accuracy
+
+---

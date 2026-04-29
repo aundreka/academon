@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../constants/nav_items.dart';
+import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
 import '../../theme/textstyles.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class AppBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -14,44 +16,104 @@ class AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0F1C),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.cyanAccent.withOpacity(0.2),
-            blurRadius: 20,
-          )
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(navItems.length, (index) {
-          final item = navItems[index];
-          final isSelected = index == currentIndex;
-
-          return GestureDetector(
-            onTap: () => onTap(index),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  item.icon,
-                  size: 24,
-                  color: isSelected
-                      ? Colors.cyanAccent
-                      : Colors.grey,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.label,
-                  style: AppTextStyles.body,
-                ),
-              ],
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.primary.withOpacity(0.18),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.background.withOpacity(0.45),
+              blurRadius: 28,
+              offset: const Offset(0, 14),
             ),
-          );
-        }),
+          ],
+        ),
+        child: Row(
+          children: List.generate(navItems.length, (index) {
+            final item = navItems[index];
+            final isSelected = index == currentIndex;
+
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => onTap(index),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        color: isSelected
+                            ? AppColors.primary.withOpacity(0.16)
+                            : Colors.transparent,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            height: 3,
+                            width: isSelected ? 18 : 0,
+                            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                          Icon(
+                            item.icon,
+                            size: 22,
+                            color: isSelected
+                                ? AppColors.accent
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 11,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? AppColors.textPrimary
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
