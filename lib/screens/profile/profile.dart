@@ -1084,16 +1084,6 @@ class _EmptyBattleHistoryCard extends StatelessWidget {
             style: AppTextStyles.body.copyWith(color: const Color(0xFF90A4D2)),
           ),
           const SizedBox(height: AppSpacing.md),
-          TextButton(
-            onPressed: onEditProfile,
-            child: Text(
-              'Open settings',
-              style: AppTextStyles.body.copyWith(
-                color: const Color(0xFF78D4FF),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
         ],
       ),
     );

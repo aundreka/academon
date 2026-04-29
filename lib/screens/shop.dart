@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/data/item_inventory_service.dart';
@@ -176,21 +177,40 @@ class _DailyOffersSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 318,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: offers.length,
-        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.lg),
-        itemBuilder: (context, index) {
-          final offer = offers[index];
-          return _OfferTile(
-            offer: offer,
-            onTap: () => onOfferTap(offer),
-          );
-        },
+      height: 264,
+      child: ScrollConfiguration(
+        behavior: const _DesktopFriendlyScrollBehavior(),
+        child: ListView.separated(
+          primary: false,
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.only(right: AppSpacing.md),
+          itemCount: offers.length,
+          separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.lg),
+          itemBuilder: (context, index) {
+            final offer = offers[index];
+            return _OfferTile(
+              offer: offer,
+              onTap: () => onOfferTap(offer),
+            );
+          },
+        ),
       ),
     );
   }
+}
+
+class _DesktopFriendlyScrollBehavior extends MaterialScrollBehavior {
+  const _DesktopFriendlyScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.unknown,
+      };
 }
 
 class _OfferTile extends StatelessWidget {
@@ -205,8 +225,13 @@ class _OfferTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 240,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      width: 188,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFF182544).withOpacity(0.9),
         borderRadius: BorderRadius.circular(24),
@@ -243,30 +268,43 @@ class _OfferTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Center(
             child: offer.item.itemType == InventoryItemType.egg
                 ? EggCard(
                     item: offer.item,
-                    width: 132,
-                    height: 144,
+                    width: 108,
+                    height: 120,
                     onTap: onTap,
                   )
                 : ItemCard(
                     item: offer.item,
-                    width: 132,
-                    height: 178,
+                    width: 108,
+                    height: 138,
                     onTap: onTap,
                   ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             offer.item.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.button.copyWith(fontSize: 15),
+            style: AppTextStyles.button.copyWith(fontSize: 13),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          if (offer.item.itemType == InventoryItemType.egg) ...[
+            const SizedBox(height: 2),
+            Text(
+              (offer.item.eggRarity ?? EggRarity.common).label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.body.copyWith(
+                color: const Color(0xFFB6C8F9),
+                fontWeight: FontWeight.w800,
+                fontSize: 10,
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xs),
           _OfferPriceRow(
             label: 'Coins',
             current: offer.discountedCoins,
@@ -274,7 +312,7 @@ class _OfferTile extends StatelessWidget {
             color: const Color(0xFFFFC857),
             icon: Icons.monetization_on_rounded,
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: 2),
           _OfferPriceRow(
             label: 'Diamonds',
             current: offer.discountedDiamonds,
@@ -421,12 +459,13 @@ class _OfferPriceRow extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 14, color: color),
-        const SizedBox(width: AppSpacing.xs),
+        const SizedBox(width: 3),
         Text(
           '$label ',
           style: AppTextStyles.body.copyWith(
             color: AppColors.textSecondary,
             fontWeight: FontWeight.w700,
+            fontSize: 10,
           ),
         ),
         Text(
@@ -434,15 +473,16 @@ class _OfferPriceRow extends StatelessWidget {
           style: AppTextStyles.body.copyWith(
             color: color,
             fontWeight: FontWeight.w900,
+            fontSize: 10,
           ),
         ),
-        const SizedBox(width: AppSpacing.xs),
+        const SizedBox(width: 3),
         Text(
           '$original',
           style: AppTextStyles.body.copyWith(
             color: AppColors.textSecondary.withOpacity(0.72),
             decoration: TextDecoration.lineThrough,
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: FontWeight.w700,
           ),
         ),
