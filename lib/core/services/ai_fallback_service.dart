@@ -3,13 +3,14 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../models/study_topic.dart';
 import 'n8n_service.dart';
 
 class AiFallbackService {
   static const String _baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
   static const String _apiKey = String.fromEnvironment(
     'OPENROUTER_API_KEY',
-    defaultValue: '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',
+    defaultValue: '',
   );
   static const String _model = String.fromEnvironment(
     'OPENROUTER_MODEL',
@@ -82,6 +83,54 @@ class AiFallbackService {
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
+  }
+
+  static Future<StudyTopic> generateTopicFromPrompt(String prompt) async {
+    _ensureConfigured();
+
+    final response = await _chatComplete(
+      systemPrompt:
+          'You are an educational AI that creates study topics. Output ONLY raw JSON '
+          'with this exact shape: '
+          '{"title":"...","topic":"...","category":"...","difficulty":"easy|normal|hard|exam",'
+          '"summary":"...","lessons":[{"title":"...","description":"..."}]}.',
+      userPrompt:
+          'Create a study topic for this learner request: "$prompt". '
+          'Make the summary concise and clear, and generate 4 to 7 lessons.',
+    );
+
+    final parsed = _parseJsonObject(response);
+    final rawLessons = parsed['lessons'] as List<dynamic>? ?? const [];
+    final lessons = rawLessons
+        .whereType<Map>()
+        .map(
+          (item) => StudyLesson(
+            id: '',
+            title: '${item['title'] ?? 'Lesson'}'.trim(),
+            description: '${item['description'] ?? ''}'.trim(),
+            orderIndex: rawLessons.indexOf(item),
+          ),
+        )
+        .where((lesson) => lesson.title.isNotEmpty)
+        .toList();
+
+    return StudyTopic(
+      id: '',
+      ownerId: null,
+      linkedTopicId: null,
+      title: '${parsed['title'] ?? 'Generated Topic'}'.trim(),
+      topic: '${parsed['topic'] ?? parsed['category'] ?? 'General Study'}'.trim(),
+      category: '${parsed['category'] ?? parsed['topic'] ?? 'General'}'.trim(),
+      difficulty: '${parsed['difficulty'] ?? 'normal'}'.trim().toLowerCase(),
+      summary: '${parsed['summary'] ?? ''}'.trim(),
+      status: 'ready',
+      sourceType: 'generated',
+      imageUrl: '',
+      fileUrl: null,
+      popularityCount: 0,
+      isOwnedByUser: false,
+      lessons: lessons,
+    );
   }
 
   static Future<String> _chatComplete({

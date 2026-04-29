@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class OpenRouterService {
-  static const String _apiKey = 'sk-or-v1-blablabla'; // 🔴 PUT YOUR KEY HERE
+  static const String _apiKey = String.fromEnvironment('OPENROUTER_API_KEY');
   static const String _apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
   
   // You can change this to 'meta-llama/llama-3-70b-instruct', 'openai/gpt-3.5-turbo', etc.
@@ -24,6 +24,12 @@ class OpenRouterService {
 
   /// Sends a prompt to OpenRouter and expects a JSON response
   static Future<dynamic> _callOpenRouter(String prompt) async {
+    if (_apiKey.isEmpty) {
+      throw Exception(
+        'OpenRouter is not configured. Run with --dart-define=OPENROUTER_API_KEY=<your-key>',
+      );
+    }
+
     final response = await http.post(
       Uri.parse(_apiUrl),
       headers: {

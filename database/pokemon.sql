@@ -69,7 +69,7 @@ create table battle_history (
   user_id uuid not null references profiles(id) on delete cascade,
 
   opponent_name text not null,
-  battle_type text not null check (battle_type in ('pve', 'pvp', 'ranked')),
+  battle_type text not null check (battle_type in ('pve', 'pvp', 'ranked', 'pvp_ranked')),
   won boolean not null default false,
   ticket_item_id text references inventory_items(id) on delete set null,
   ticket_cost int not null default 0 check (ticket_cost >= 0),

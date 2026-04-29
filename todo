@@ -1,1 +1,3 @@
-please put in patch.sql what you added to user.sql so i can patch the database
+add a limit to items you ca nbuy in daily offer, you can purchase once only.
+
+everytime you purchase an egg, hatchery should refresh

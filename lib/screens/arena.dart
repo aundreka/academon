@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/models/study_topic.dart';
+import '../core/services/study_topic_service.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/textstyles.dart';
+import '../core/widgets/topics/topic_views.dart';
+import 'arena/pve.dart';
 import '../core/widgets/ui/topnav.dart';
 import 'arena/pve_menu.dart';
 import 'arena/pvp_quickmatch.dart';
+import 'arena/pvp_ranked.dart';
 
 class ArenaScreen extends StatefulWidget {
   const ArenaScreen({super.key});
@@ -17,13 +22,17 @@ class ArenaScreen extends StatefulWidget {
 
 class _ArenaScreenState extends State<ArenaScreen> {
   late final SupabaseClient _supabase;
+  late final StudyTopicService _topicService;
   late Future<int?> _energyFuture;
+  late Future<List<StudyTopic>> _popularTopicsFuture;
 
   @override
   void initState() {
     super.initState();
     _supabase = Supabase.instance.client;
+    _topicService = StudyTopicService(_supabase);
     _energyFuture = _loadCurrentEnergy();
+    _popularTopicsFuture = _loadPopularTopics();
   }
 
   Future<int?> _loadCurrentEnergy() async {
@@ -41,8 +50,22 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   Future<void> _refreshEnergy() async {
     final nextFuture = _loadCurrentEnergy();
-    setState(() => _energyFuture = nextFuture);
+    final topicsFuture = _loadPopularTopics();
+    setState(() {
+      _energyFuture = nextFuture;
+      _popularTopicsFuture = topicsFuture;
+    });
     await nextFuture;
+  }
+
+  Future<List<StudyTopic>> _loadPopularTopics() async {
+    final topics = await _topicService.fetchAvailableTopics();
+    topics.sort((a, b) {
+      final popularity = b.popularityCount.compareTo(a.popularityCount);
+      if (popularity != 0) return popularity;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
+    return topics.take(4).toList();
   }
 
   void _openScreen(BuildContext context, Widget screen) {
@@ -51,46 +74,59 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        const AppTopNav(),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _refreshEnergy,
-            child: Stack(
-              children: [
-                const Positioned.fill(
-                  child: _ArenaBackground(),
-                ),
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _ArenaGridPainter(),
-                  ),
-                ),
-                ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    120,
-                  ),
+        const Positioned.fill(
+          child: _ArenaBackground(),
+        ),
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _ArenaGridPainter(),
+          ),
+        ),
+        Column(
+          children: [
+            const AppTopNav(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refreshEnergy,
+                child: Stack(
                   children: [
-                    _ArenaControlPanel(
-                      onTrain: () => _openScreen(context, const PveScreen()),
-                      onBattle: () => _openScreen(context, const PvpScreen()),
+                    ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.md,
+                        AppSpacing.md,
+                        120,
+                      ),
+                      children: [
+                        _ArenaControlPanel(
+                          onTrain: () => _openScreen(context, const PveScreen()),
+                          onQuickmatch: () =>
+                              _openScreen(context, const PvpScreen()),
+                          onRanked: () =>
+                              _openScreen(context, const PvpRankedScreen()),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _DailyPopularTopicsSection(
+                          topicsFuture: _popularTopicsFuture,
+                          onTopicTap: (topic) =>
+                              _openScreen(context, PveBattleScreen(topic: topic)),
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      left: AppSpacing.md,
+                      right: AppSpacing.md,
+                      bottom: AppSpacing.md,
+                      child: _EnergyPanel(energyFuture: _energyFuture),
                     ),
                   ],
                 ),
-                Positioned(
-                  left: AppSpacing.md,
-                  right: AppSpacing.md,
-                  bottom: AppSpacing.md,
-                  child: _EnergyPanel(energyFuture: _energyFuture),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );
@@ -234,11 +270,13 @@ class _ArenaBackground extends StatelessWidget {
 
 class _ArenaControlPanel extends StatelessWidget {
   final VoidCallback onTrain;
-  final VoidCallback onBattle;
+  final VoidCallback onQuickmatch;
+  final VoidCallback onRanked;
 
   const _ArenaControlPanel({
     required this.onTrain,
-    required this.onBattle,
+    required this.onQuickmatch,
+    required this.onRanked,
   });
 
   @override
@@ -266,13 +304,32 @@ class _ArenaControlPanel extends StatelessWidget {
             onTap: onTrain,
           ),
           const SizedBox(height: AppSpacing.md),
-          _ArenaModeTile(
-            title: 'Battle',
-            subtitle: 'Challenge other trainers',
-            imagePath: 'assets/ui/battle.png',
-            icon: Icons.local_fire_department_rounded,
-            accent: const Color(0xFFFF8A3D),
-            onTap: onBattle,
+          Row(
+            children: [
+              Expanded(
+                child: _ArenaModeTile(
+                  title: 'Ranked',
+                  subtitle: 'Climb the trainer ladder',
+                  imagePath: 'assets/ui/battle.png',
+                  icon: Icons.emoji_events_rounded,
+                  accent: const Color(0xFFFF8A3D),
+                  onTap: onRanked,
+                  compact: true,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _ArenaModeTile(
+                  title: 'Quick\nmatch',
+                  subtitle: 'Jump into a fast battle',
+                  imagePath: 'assets/ui/battle.png',
+                  icon: Icons.flash_on_rounded,
+                  accent: const Color(0xFFFFB347),
+                  onTap: onQuickmatch,
+                  compact: true,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -287,6 +344,7 @@ class _ArenaModeTile extends StatelessWidget {
   final IconData icon;
   final Color accent;
   final VoidCallback onTap;
+  final bool compact;
 
   const _ArenaModeTile({
     required this.title,
@@ -295,17 +353,22 @@ class _ArenaModeTile extends StatelessWidget {
     required this.icon,
     required this.accent,
     required this.onTap,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final contentPadding = compact
+        ? const EdgeInsets.fromLTRB(12, AppSpacing.md, 12, AppSpacing.md)
+        : const EdgeInsets.all(AppSpacing.md);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(28),
         onTap: onTap,
         child: Ink(
-          height: 168,
+          height: compact ? 152 : 168,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             gradient: LinearGradient(
@@ -359,7 +422,7 @@ class _ArenaModeTile extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
+                  padding: contentPadding,
                   child: Row(
                     children: [
                       Expanded(
@@ -373,7 +436,6 @@ class _ArenaModeTile extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(999),
-
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -396,7 +458,7 @@ class _ArenaModeTile extends StatelessWidget {
                             Text(
                               title,
                               style: AppTextStyles.title.copyWith(
-                                fontSize: 28,
+                                fontSize: compact ? 18 : 28,
                                 height: 1,
                               ),
                             ),
@@ -406,15 +468,16 @@ class _ArenaModeTile extends StatelessWidget {
                               style: AppTextStyles.body.copyWith(
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w600,
+                                fontSize: compact ? 11 : 12,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
+                      SizedBox(width: compact ? AppSpacing.xs : AppSpacing.md),
                       Container(
-                        width: 96,
-                        height: 96,
+                        width: compact ? 72 : 96,
+                        height: compact ? 72 : 96,
                         padding: const EdgeInsets.all(AppSpacing.sm),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(24),
@@ -425,7 +488,7 @@ class _ArenaModeTile extends StatelessWidget {
                           errorBuilder: (_, _, _) {
                             return Icon(
                               icon,
-                              size: 48,
+                              size: compact ? 34 : 48,
                               color: accent,
                             );
                           },
@@ -446,6 +509,98 @@ class _ArenaModeTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DailyPopularTopicsSection extends StatelessWidget {
+  final Future<List<StudyTopic>> topicsFuture;
+  final ValueChanged<StudyTopic> onTopicTap;
+
+  const _DailyPopularTopicsSection({
+    required this.topicsFuture,
+    required this.onTopicTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.card.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.primary.withOpacity(0.14)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Daily Popular Topics',
+            style: AppTextStyles.title.copyWith(fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Trending training picks from other players today.',
+            style: AppTextStyles.body.copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          FutureBuilder<List<StudyTopic>>(
+            future: topicsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const SizedBox(
+                  height: 150,
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Text(
+                  'Unable to load popular topics right now.',
+                  style: AppTextStyles.body.copyWith(fontSize: 12),
+                );
+              }
+
+              final topics = snapshot.data ?? const <StudyTopic>[];
+              if (topics.isEmpty) {
+                return Text(
+                  'No popular topics yet. Check back after more arena sessions.',
+                  style: AppTextStyles.body.copyWith(fontSize: 12),
+                );
+              }
+
+              return SizedBox(
+                height: 174,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: topics.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+                  itemBuilder: (context, index) {
+                    final topic = topics[index];
+                    return SizedBox(
+                      width: 250,
+                        child: StudyTopicCard(
+                        topic: topic,
+                        badgeLabel: '${topic.popularityCount} learners',
+                        onTap: () => onTopicTap(topic),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

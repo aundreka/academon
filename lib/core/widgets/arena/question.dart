@@ -11,12 +11,14 @@ class ArenaQuestionWidget extends StatefulWidget {
   final String moduleId;
   final SupabaseClient? supabase;
   final ValueChanged<ArenaQuestionResult>? onCompleted;
+  final ArenaQuestionTurnDecision Function(ArenaAnswerResolution)? onAnswerResolved;
 
   const ArenaQuestionWidget({
     super.key,
     required this.moduleId,
     this.supabase,
     this.onCompleted,
+    this.onAnswerResolved,
   });
 
   @override
@@ -149,6 +151,25 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
       await Future<void>.delayed(const Duration(milliseconds: 550));
 
       if (!mounted) {
+        return;
+      }
+
+      final resolution = ArenaAnswerResolution(
+        moduleId: widget.moduleId,
+        questionId: question.id,
+        questionIndex: _currentIndex,
+        totalQuestions: _questions.length,
+        selectedChoice: choice,
+        correctAnswer: question.correctAnswer,
+        explanation: question.explanation,
+        isCorrect: isCorrect,
+      );
+
+      final decision = widget.onAnswerResolved?.call(resolution) ??
+          ArenaQuestionTurnDecision.continueQuiz;
+
+      if (decision == ArenaQuestionTurnDecision.finishAttempt) {
+        await _finishAttempt();
         return;
       }
 
@@ -674,4 +695,31 @@ class ArenaQuestionResult {
     required this.totalQuestions,
     required this.accuracy,
   });
+}
+
+class ArenaAnswerResolution {
+  final String moduleId;
+  final String questionId;
+  final int questionIndex;
+  final int totalQuestions;
+  final String selectedChoice;
+  final String correctAnswer;
+  final String? explanation;
+  final bool isCorrect;
+
+  const ArenaAnswerResolution({
+    required this.moduleId,
+    required this.questionId,
+    required this.questionIndex,
+    required this.totalQuestions,
+    required this.selectedChoice,
+    required this.correctAnswer,
+    required this.explanation,
+    required this.isCorrect,
+  });
+}
+
+enum ArenaQuestionTurnDecision {
+  continueQuiz,
+  finishAttempt,
 }

@@ -51,6 +51,38 @@ class N8nService {
         .toList();
   }
 
+  static Future<Map<String, dynamic>> generateTopic(String prompt) async {
+    _ensureConfigured();
+    final trimmedPrompt = prompt.trim();
+    if (trimmedPrompt.isEmpty) {
+      throw Exception('Please enter a topic you want to learn.');
+    }
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/topic-generate'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({'prompt': trimmedPrompt}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Topic generation failed: ${response.statusCode} ${response.body}',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Unexpected topic generation response format.');
+    }
+
+    final nestedTopic = decoded['topic'];
+    if (nestedTopic is Map<String, dynamic>) {
+      return nestedTopic;
+    }
+
+    return decoded;
+  }
+
   static Future<List<Map<String, dynamic>>> uploadSyllabus(
     Uint8List pdfBytes,
     String fileName,
