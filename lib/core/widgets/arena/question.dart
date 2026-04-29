@@ -288,139 +288,108 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
     final question = _questions[_currentIndex];
     final progress = (_currentIndex + 1) / _questions.length;
 
-    return _BattleShell(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF23345F),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: const Color(0xFF76D8FF).withOpacity(0.38),
-                    ),
-                  ),
-                  child: Text(
-                    'QUESTION ${_currentIndex + 1}',
-                    style: AppTextStyles.body.copyWith(
-                      color: const Color(0xFF8EEBFF),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '${_currentIndex + 1}/${_questions.length}',
-                  style: AppTextStyles.body.copyWith(
-                    color: const Color(0xFFFFEAAE),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 9,
-                backgroundColor: Colors.white.withOpacity(0.10),
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFFFD56A),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0E1630),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFF7EDFFF).withOpacity(0.20),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Enemy Challenge',
-                    style: AppTextStyles.button.copyWith(
-                      color: const Color(0xFFFFD56A),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    question.questionText,
-                    style: AppTextStyles.body.copyWith(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      height: 1.45,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            for (final choice in question.choices) ...[
-              _ChoiceTile(
-                label: choice,
-                isSelected: _selectedChoice == choice,
-                isCorrect: _selectedChoice != null &&
-                    choice.trim().toLowerCase() ==
-                        question.correctAnswer.trim().toLowerCase(),
-                isWrongSelection: _selectedChoice == choice &&
-                    choice.trim().toLowerCase() !=
-                        question.correctAnswer.trim().toLowerCase(),
-                isPressed: _pressedChoice == choice,
-                enabled: !_submitting && _selectedChoice == null,
-                onTap: () => _handleChoiceTap(choice),
-                onPressedStateChanged: (pressed) {
-                  if (!mounted || _selectedChoice != null || _submitting) {
-                    return;
-                  }
-                  setState(() {
-                    _pressedChoice = pressed ? choice : null;
-                  });
-                },
-              ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-            if (_selectedChoice != null) ...[
-              const SizedBox(height: AppSpacing.xs),
+    return Align(
+  alignment: Alignment.topCenter,
+  child: Padding(
+    padding: const EdgeInsets.only(top: 12, left: 12, right: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [ 
+          Row(
+            children: [
               Text(
-                question.explanation?.trim().isNotEmpty == true
-                    ? question.explanation!.trim()
-                    : (_selectedChoice!.trim().toLowerCase() ==
-                            question.correctAnswer.trim().toLowerCase()
-                        ? 'Critical hit. That answer is correct.'
-                        : 'The correct answer is ${question.correctAnswer}.'),
-                style: AppTextStyles.body.copyWith(
-                  color: const Color(0xFFD7F5FF),
+                'Q${_currentIndex + 1}/${_questions.length}',
+                style: AppTextStyles.button.copyWith(
+                  color: const Color(0xFFFFD56A),
                   fontSize: 12,
-                  height: 1.35,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 7,
+                    backgroundColor: Colors.white.withOpacity(0.10),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFFFFD56A),
+                    ),
+                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            question.questionText,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.body.copyWith(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: question.choices.map((choice) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: _ChoiceTile(
+                    label: choice,
+                    compact: true,
+                    isSelected: _selectedChoice == choice,
+                    isCorrect: _selectedChoice != null &&
+                        choice.trim().toLowerCase() ==
+                            question.correctAnswer.trim().toLowerCase(),
+                    isWrongSelection: _selectedChoice == choice &&
+                        choice.trim().toLowerCase() !=
+                            question.correctAnswer.trim().toLowerCase(),
+                    isPressed: _pressedChoice == choice,
+                    enabled: !_submitting && _selectedChoice == null,
+                    onTap: () => _handleChoiceTap(choice),
+                    onPressedStateChanged: (pressed) {
+                      if (!mounted || _selectedChoice != null || _submitting) {
+                        return;
+                      }
+                      setState(() {
+                        _pressedChoice = pressed ? choice : null;
+                      });
+                    },
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          if (_selectedChoice != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              question.explanation?.trim().isNotEmpty == true
+                  ? question.explanation!.trim()
+                  : (_selectedChoice!.trim().toLowerCase() ==
+                          question.correctAnswer.trim().toLowerCase()
+                      ? 'Correct.'
+                      : 'Correct answer: ${question.correctAnswer}.'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.body.copyWith(
+                color: const Color(0xFFD7F5FF),
+                fontSize: 11,
+                height: 1.25,
+              ),
+            ),
           ],
-        ),
+        ],
       ),
-    );
+    ),
+
+);
   }
+  
 }
 
 class _ChoiceTile extends StatelessWidget {
@@ -430,6 +399,7 @@ class _ChoiceTile extends StatelessWidget {
   final bool isWrongSelection;
   final bool isPressed;
   final bool enabled;
+  final bool compact;
   final VoidCallback onTap;
   final ValueChanged<bool> onPressedStateChanged;
 
@@ -442,6 +412,8 @@ class _ChoiceTile extends StatelessWidget {
     required this.enabled,
     required this.onTap,
     required this.onPressedStateChanged,
+      this.compact = false,
+
   });
 
   @override
@@ -488,10 +460,10 @@ class _ChoiceTile extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.md,
-            ),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 8 : AppSpacing.md,
+                vertical: compact ? 10 : AppSpacing.md,
+              ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               gradient: LinearGradient(
@@ -508,41 +480,52 @@ class _ChoiceTile extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.10),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.16),
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    isCorrect
-                        ? Icons.check_rounded
-                        : isWrongSelection
-                            ? Icons.close_rounded
-                            : Icons.play_arrow_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: AppTextStyles.button.copyWith(
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
+           child: compact
+    ? Text(
+        label,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: AppTextStyles.button.copyWith(
+          fontSize: 11,
+          color: Colors.white,
+        ),
+      )
+    : Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.10),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.16),
+              ),
             ),
+            alignment: Alignment.center,
+            child: Icon(
+              isCorrect
+                  ? Icons.check_rounded
+                  : isWrongSelection
+                      ? Icons.close_rounded
+                      : Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.button.copyWith(
+                fontSize: 14,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
           ),
         ),
       ),
@@ -561,7 +544,7 @@ class _BattleShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+borderRadius: BorderRadius.circular(0),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

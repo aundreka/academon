@@ -254,7 +254,7 @@ class _ReviewerTabPanelState extends State<ReviewerTabPanel> {
   String _friendlyError(String raw) {
     final message = raw.replaceFirst('Exception: ', '').trim();
     if (message.contains('Both generation paths failed')) {
-      return 'Generation failed on both n8n and AI fallback. '
+      return 'Generation failed on both n8n and the Gemini fallback. '
           'Please try another PDF or retry in a moment.\n\nDetails:\n$message';
     }
     return message;

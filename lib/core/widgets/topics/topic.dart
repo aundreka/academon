@@ -30,7 +30,9 @@ class _TopicCatalogScreenState extends State<TopicCatalogScreen> {
 
   Future<void> _refreshTopics() async {
     final future = _topicService.fetchAvailableTopics();
-    setState(() => _topicsFuture = future);
+    setState(() {
+      _topicsFuture = future;
+    });
     await future;
   }
 

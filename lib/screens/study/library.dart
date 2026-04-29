@@ -374,12 +374,12 @@ class _LibraryTabPanelState extends State<LibraryTabPanel> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${entry.value['title'] ?? 'Section'}',
+                                      entry.value['title'] ?? 'Section',
                                       style: AppTextStyles.button.copyWith(fontSize: 12),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${entry.value['content'] ?? ''}',
+                                      entry.value['content'] ?? '',
                                       style: AppTextStyles.body.copyWith(
                                         fontSize: 12,
                                         color: AppColors.textSecondary,

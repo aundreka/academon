@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:audioplayers/audioplayers.dart';
 import '../../core/data/item_inventory_service.dart';
 import '../../core/data/pokemons.dart';
 import '../../core/data/rewards.dart';
@@ -12,6 +12,7 @@ import '../../core/models/boss.dart';
 import '../../core/models/pokemon.dart';
 import '../../core/models/reward.dart';
 import '../../core/models/study_topic.dart';
+import '../../core/services/qwen_question_service.dart';
 import '../../core/services/study_topic_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
@@ -35,9 +36,14 @@ class PveBattleScreen extends StatefulWidget {
 class _PveBattleScreenState extends State<PveBattleScreen> {
   late final SupabaseClient _supabase;
   late final StudyTopicService _topicService;
+  late final QwenQuestionService _qwenQuestionService;
   late final ItemInventoryService _inventoryService;
   late Future<_BattleBootstrap> _bootstrapFuture;
-
+  late final AudioPlayer _bgmPlayer;
+bool _playerAttacking = false;
+bool _bossAttacking = false;
+bool _playerHit = false;
+bool _bossHit = false;
   _BattleBootstrap? _battle;
   int _playerHp = 0;
   int _bossHp = 0;
@@ -53,13 +59,19 @@ class _PveBattleScreenState extends State<PveBattleScreen> {
     super.initState();
     _supabase = Supabase.instance.client;
     _topicService = StudyTopicService(_supabase);
+    _qwenQuestionService = const QwenQuestionService();
     _inventoryService = ItemInventoryService(_supabase);
     _lockLandscape();
     _bootstrapFuture = _prepareBattle();
+    _bgmPlayer = AudioPlayer();
+    _playBgm();
   }
 
   @override
   void dispose() {
+     _bgmPlayer.stop();
+    _bgmPlayer.dispose();
+
     _restoreOrientations();
     super.dispose();
   }
@@ -70,7 +82,11 @@ class _PveBattleScreenState extends State<PveBattleScreen> {
       DeviceOrientation.landscapeRight,
     ]);
   }
-
+  Future<void> _playBgm() async {
+    await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+    await _bgmPlayer.setVolume(0.35);
+    await _bgmPlayer.play(AssetSource('audio/battle_bgm.mp3'));
+  }
   Future<void> _restoreOrientations() async {
     await SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
@@ -79,9 +95,36 @@ class _PveBattleScreenState extends State<PveBattleScreen> {
       DeviceOrientation.landscapeRight,
     ]);
   }
+Future<void> _playAttackAnimation({required bool playerAttacks}) async {
+  if (!mounted) return;
 
+  setState(() {
+    _playerAttacking = playerAttacks;
+    _bossAttacking = !playerAttacks;
+  });
+
+  await Future.delayed(const Duration(milliseconds: 220));
+
+  if (!mounted) return;
+
+  setState(() {
+    _bossHit = playerAttacks;
+    _playerHit = !playerAttacks;
+  });
+
+  await Future.delayed(const Duration(milliseconds: 140));
+
+  if (!mounted) return;
+
+  setState(() {
+    _playerAttacking = false;
+    _bossAttacking = false;
+    _playerHit = false;
+    _bossHit = false;
+  });
+}
   Future<_BattleBootstrap> _prepareBattle() async {
-    final topic = await _ensureBattleModule(widget.topic);
+    final topic = await _loadBattleModule(widget.topic);
     await _ensureQuestionsForModule(topic);
     final player = await _loadPlayerPokemon();
     final boss = _selectBoss(topic, player.pokemon);
@@ -137,73 +180,48 @@ class _PveBattleScreenState extends State<PveBattleScreen> {
   }
 
   Future<void> _ensureQuestionsForModule(StudyTopic topic) async {
-    try {
-      final existing = await _supabase
-          .from('questions')
-          .select('id')
-          .eq('module_id', topic.id)
-          .limit(1);
-      if (existing.isNotEmpty) {
-        return;
-      }
+    final existing = await _supabase
+        .from('questions')
+        .select('id')
+        .eq('module_id', topic.id)
+        .eq('question_type', 'mcq')
+        .limit(1);
+    if (existing.isNotEmpty) {
+      return;
+    }
 
-      final lessonTitles = topic.lessons
-          .map((lesson) => lesson.title.trim())
-          .where((title) => title.isNotEmpty)
-          .toList();
+    final generatedQuestions = await _qwenQuestionService.generateQuestions(
+      moduleTitle: topic.title,
+      moduleTopic: topic.topic,
+      moduleSummary: topic.summary,
+      moduleDifficulty: _normalizedQuestionDifficulty(topic.difficulty),
+      count: 20,
+    );
 
-      final fallbackChoices = {
-        topic.title,
-        '${topic.topic} Basics',
-        '${topic.category} Foundations',
-        'General Review',
-      }.toList();
+    final payload = generatedQuestions.asMap().entries.map((entry) {
+      final question = entry.value;
+      return {
+        'module_id': topic.id,
+        'question_text': question.questionText,
+        'question_type': 'mcq',
+        'choices': question.choices,
+        'correct_answer': question.correctAnswer,
+        'explanation': question.explanation,
+        'difficulty': _normalizedQuestionDifficulty(question.difficulty),
+        'order_index': entry.key,
+      };
+    }).toList();
 
-      final sourceTitles = lessonTitles.isNotEmpty ? lessonTitles : fallbackChoices;
-      final payload = <Map<String, dynamic>>[];
-
-      for (var index = 0; index < sourceTitles.length && index < 6; index++) {
-        final correct = sourceTitles[index];
-        final distractors = sourceTitles.where((title) => title != correct).take(3).toList();
-        while (distractors.length < 3) {
-          distractors.add(fallbackChoices[distractors.length % fallbackChoices.length]);
-        }
-
-        payload.add({
-          'module_id': topic.id,
-          'question_text': 'Which lesson is included in ${topic.title}?',
-          'question_type': 'mcq',
-          'choices': {correct, ...distractors}.take(4).toList(),
-          'correct_answer': correct,
-          'explanation': 'This lesson is part of the ${topic.topic} training set.',
-          'difficulty': _normalizedQuestionDifficulty(topic.difficulty),
-          'order_index': index,
-        });
-      }
-
-      if (payload.isNotEmpty) {
-        await _supabase.from('questions').insert(payload);
-      }
-    } catch (_) {
-      // If question seeding fails we let the question widget surface the real error.
+    if (payload.isNotEmpty) {
+      await _supabase.from('questions').insert(payload);
     }
   }
 
-  Future<StudyTopic> _ensureBattleModule(StudyTopic topic) async {
-    if (topic.isOwnedByUser) {
-      return _topicService.fetchModuleDetail(topic.id);
+  Future<StudyTopic> _loadBattleModule(StudyTopic topic) async {
+    if (!topic.isOwnedByUser) {
+      throw Exception('Only modules can be used in PvE. Convert this topic into a module first.');
     }
-
-    return _topicService.createModule(
-      title: topic.title,
-      topic: topic.topic,
-      summary: topic.summary,
-      difficulty: topic.difficulty,
-      category: topic.category,
-      lessons: topic.lessons,
-      sourceType: 'topic',
-      linkedTopicId: topic.id,
-    );
+    return _topicService.fetchModuleDetail(topic.id);
   }
 
   Future<_PlayerBattlePokemon> _loadPlayerPokemon() async {
@@ -287,68 +305,75 @@ class _PveBattleScreenState extends State<PveBattleScreen> {
     return math.max(320, (boss.maxHp * multiplier).round());
   }
 
-  ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution) {
-    final battle = _battle;
-    if (battle == null || _battleResolved) {
-      return ArenaQuestionTurnDecision.finishAttempt;
-    }
-
-    final playerAttackMultiplier = _typeEffectiveness(
-      battle.player.pokemon.type,
-      battle.boss.type,
-    );
-    final bossAttackMultiplier = _typeEffectiveness(
-      battle.boss.type,
-      battle.player.pokemon.type,
-    );
-
-    if (resolution.isCorrect) {
-      final damage = _playerDamage(
-        player: battle.player,
-        boss: battle.boss,
-        topic: battle.topic,
-        typeMultiplier: playerAttackMultiplier,
-      );
-      setState(() {
-        _bossHp = math.max(0, _bossHp - damage);
-        _battleLog = _battleMessage(
-          actor: battle.player.displayName,
-          action: 'used a study strike',
-          damage: damage,
-          multiplier: playerAttackMultiplier,
-          isCorrect: true,
-        );
-      });
-    } else {
-      final damage = _bossDamage(
-        player: battle.player,
-        boss: battle.boss,
-        typeMultiplier: bossAttackMultiplier,
-      );
-      setState(() {
-        _playerHp = math.max(0, _playerHp - damage);
-        _battleLog = _battleMessage(
-          actor: battle.boss.name,
-          action: 'punished the mistake',
-          damage: damage,
-          multiplier: bossAttackMultiplier,
-          isCorrect: false,
-        );
-      });
-    }
-
-    if (_bossHp <= 0) {
-      _resolveBattle(won: true, partialQuestionResult: null);
-      return ArenaQuestionTurnDecision.finishAttempt;
-    }
-    if (_playerHp <= 0) {
-      _resolveBattle(won: false, partialQuestionResult: null);
-      return ArenaQuestionTurnDecision.finishAttempt;
-    }
-
-    return ArenaQuestionTurnDecision.continueQuiz;
+ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution) {
+  final battle = _battle;
+  if (battle == null || _battleResolved) {
+    return ArenaQuestionTurnDecision.finishAttempt;
   }
 
+  final playerAttackMultiplier = _typeEffectiveness(
+    battle.player.pokemon.type,
+    battle.boss.type,
+  );
+
+  final bossAttackMultiplier = _typeEffectiveness(
+    battle.boss.type,
+    battle.player.pokemon.type,
+  );
+
+  if (resolution.isCorrect) {
+    _playAttackAnimation(playerAttacks: true);
+
+    final damage = _playerDamage(
+      player: battle.player,
+      boss: battle.boss,
+      topic: battle.topic,
+      typeMultiplier: playerAttackMultiplier,
+    );
+
+    setState(() {
+      _bossHp = math.max(0, _bossHp - damage);
+      _battleLog = _battleMessage(
+        actor: battle.player.displayName,
+        action: 'used a study strike',
+        damage: damage,
+        multiplier: playerAttackMultiplier,
+        isCorrect: true,
+      );
+    });
+  } else {
+    _playAttackAnimation(playerAttacks: false);
+
+    final damage = _bossDamage(
+      player: battle.player,
+      boss: battle.boss,
+      typeMultiplier: bossAttackMultiplier,
+    );
+
+    setState(() {
+      _playerHp = math.max(0, _playerHp - damage);
+      _battleLog = _battleMessage(
+        actor: battle.boss.name,
+        action: 'punished the mistake',
+        damage: damage,
+        multiplier: bossAttackMultiplier,
+        isCorrect: false,
+      );
+    });
+  }
+
+  if (_bossHp <= 0) {
+    _resolveBattle(won: true, partialQuestionResult: null);
+    return ArenaQuestionTurnDecision.finishAttempt;
+  }
+
+  if (_playerHp <= 0) {
+    _resolveBattle(won: false, partialQuestionResult: null);
+    return ArenaQuestionTurnDecision.finishAttempt;
+  }
+
+  return ArenaQuestionTurnDecision.continueQuiz;
+}
   int _playerDamage({
     required _PlayerBattlePokemon player,
     required Boss boss,
@@ -548,69 +573,94 @@ class _PveBattleScreenState extends State<PveBattleScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: FutureBuilder<_BattleBootstrap>(
-        future: _bootstrapFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            );
-          }
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: AppColors.background,
+    body: FutureBuilder<_BattleBootstrap>(
+      future: _bootstrapFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
+        }
 
-          if (snapshot.hasError || !snapshot.hasData) {
-            return _BattleMessageScaffold(
-              title: 'Battle Unavailable',
-              message: snapshot.error.toString().replaceFirst('Exception: ', ''),
-            );
-          }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _BattleMessageScaffold(
+            title: 'Battle Unavailable',
+            message: snapshot.error.toString().replaceFirst('Exception: ', ''),
+          );
+        }
 
-          final battle = snapshot.data!;
-          final reward = _earnedReward;
+        final battle = snapshot.data!;
+        final reward = _earnedReward;
 
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 11,
-                    child: _BattlefieldPanel(
-                      battle: battle,
-                      playerHp: _playerHp,
-                      bossHp: _bossHp,
-                      battleLog: _battleLog,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    flex: 10,
-                    child: _battleResolved
-                        ? _BattleResultPanel(
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/bg/pve.jpg',
+                fit: BoxFit.cover,
+              ),
+            ),
+
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.08),
+              ),
+            ),
+
+            SafeArea(
+              child: _battleResolved
+                  ? Align(
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: 430,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: _BattleResultPanel(
                             won: _wonBattle ?? false,
                             reward: reward,
                             rewarding: _rewarding,
                             topic: battle.topic,
                             onBack: () => Navigator.of(context).pop(),
-                          )
-                        : ArenaQuestionWidget(
-                            moduleId: battle.topic.id,
-                            supabase: _supabase,
-                            onAnswerResolved: _handleAnswerResolved,
-                            onCompleted: _handleQuestionCompleted,
                           ),
-                  ),
-                ],
-              ),
+                        ),
+                      ),
+                    )
+                  : _BattlefieldPanel(
+                      battle: battle,
+                      playerHp: _playerHp,
+                      bossHp: _bossHp,
+                      battleLog: _battleLog,
+                      playerAttacking: _playerAttacking,
+                      bossAttacking: _bossAttacking,
+                      playerHit: _playerHit,
+                      bossHit: _bossHit,
+                    ),
             ),
-          );
-        },
-      ),
-    );
-  }
+
+            if (!_battleResolved)
+              Positioned(
+                top: 12,
+                left: 120,
+                right: 120,
+                child: SafeArea(
+                  child: ArenaQuestionWidget(
+                    moduleId: battle.topic.id,
+                    supabase: _supabase,
+                    onAnswerResolved: _handleAnswerResolved,
+                    onCompleted: _handleQuestionCompleted,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+  );
+}
 }
 
 class _BattlefieldPanel extends StatelessWidget {
@@ -618,157 +668,224 @@ class _BattlefieldPanel extends StatelessWidget {
   final int playerHp;
   final int bossHp;
   final String battleLog;
+  final bool playerAttacking;
+  final bool bossAttacking;
+  final bool playerHit;
+  final bool bossHit;
 
   const _BattlefieldPanel({
     required this.battle,
     required this.playerHp,
     required this.bossHp,
     required this.battleLog,
+    required this.playerAttacking,
+    required this.bossAttacking,
+    required this.playerHit,
+    required this.bossHit,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF7EE8F2),
-            Color(0xFFB8F3A5),
-            Color(0xFF7BD15D),
-            Color(0xFF2B5A25),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
+    return Stack(
+      children: [
+        Positioned(
+          top: 24,
+          right: 44,
+          child: Container(
+            width: 150,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.24),
+              borderRadius: BorderRadius.circular(999),
+            ),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 24,
-              right: 44,
-              child: Container(
-                width: 150,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.24),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 80,
-              top: 150,
-              right: 80,
-              child: Container(
-                height: 70,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF5DB35B).withOpacity(0.92),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 32,
-              right: 32,
-              bottom: 130,
-              child: Row(
+        ),
+
+        Positioned(
+          left: 32,
+          right: 32,
+          bottom: 88,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final travelX = constraints.maxWidth * 0.42;
+
+              return Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: PokemonBattleSprite(
-                      pokemon: battle.player.pokemon,
-                      displayName:
-                          '${battle.player.displayName} Lv.${battle.player.level}',
-                      currentHp: playerHp,
-                      maxHp: battle.playerMaxHp,
-                      side: BattleSpriteSide.left,
-                      width: 250,
-                      height: 280,
-                      badge: _TypeBadge(
-                        label: battle.player.pokemon.type,
-                        color: const Color(0xFF234A8A),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutBack,
+                      transform: Matrix4.translationValues(
+                        playerAttacking ? travelX : 0,
+                        playerAttacking ? -35 : 0,
+                        0,
+                      ),
+                      child: _HitFlash(
+                        active: playerHit,
+                        child: PokemonBattleSprite(
+                          pokemon: battle.player.pokemon,
+                          displayName:
+                              '${battle.player.displayName} Lv.${battle.player.level}',
+                          currentHp: playerHp,
+                          maxHp: battle.playerMaxHp,
+                          side: BattleSpriteSide.left,
+                          width: 250,
+                          height: 280,
+                        ),
                       ),
                     ),
                   ),
+
                   const SizedBox(width: AppSpacing.md),
+
                   Expanded(
                     child: Align(
-                      alignment: Alignment.topRight,
-                      child: BossBattleSprite(
-                        boss: battle.boss,
-                        currentHp: bossHp,
-                        maxHp: battle.bossMaxHp,
-                        width: 260,
-                        height: 300,
-                        badge: _TypeBadge(
-                          label: battle.boss.type,
-                          color: const Color(0xFF6A1837),
+                      alignment: Alignment.bottomRight,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutBack,
+                        transform: Matrix4.translationValues(
+                          bossAttacking ? -travelX : 0,
+                          bossAttacking ? 35 : 0,
+                          0,
+                        ),
+                        child: _HitFlash(
+                          active: bossHit,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            alignment: Alignment.topCenter,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 70),
+                                child: BossBattleSprite(
+                                  boss: battle.boss,
+                                  currentHp: bossHp,
+                                  maxHp: battle.bossMaxHp,
+                                  width: 520,
+                                  height: 600,
+                                  showHpBar: false,
+                                ),
+                              ),
+
+                              Positioned(
+                                top: 150,
+                                child: _BossHpBar(
+                                  bossName: battle.boss.name,
+                                  currentHp: bossHp,
+                                  maxHp: battle.bossMaxHp,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            Positioned(
-              left: AppSpacing.md,
-              right: AppSpacing.md,
-              bottom: AppSpacing.md,
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF4F4F4),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFF3F4752), width: 3),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x66000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      battle.topic.title,
-                      style: AppTextStyles.button.copyWith(
-                        fontSize: 14,
-                        color: const Color(0xFF2C3642),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      battleLog,
-                      style: AppTextStyles.body.copyWith(
-                        fontSize: 13,
-                        color: const Color(0xFF39424F),
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              left: AppSpacing.md,
-              top: AppSpacing.md,
-              child: _EncounterBanner(topic: battle.topic, boss: battle.boss),
-            ),
+              );
+            },
+          ),
+        ),
+
+      
+      ],
+    );
+  }
+}
+class _BossHpBar extends StatelessWidget {
+  final String bossName;
+  final int currentHp;
+  final int maxHp;
+
+  const _BossHpBar({
+    required this.bossName,
+    required this.currentHp,
+    required this.maxHp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hpRatio = maxHp <= 0 ? 0.0 : (currentHp / maxHp).clamp(0.0, 1.0);
+
+    return Container(
+      width: 420,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF8E174E),
+            Color(0xFFFF6545),
           ],
         ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            bossName,
+            style: AppTextStyles.button.copyWith(
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: hpRatio,
+              minHeight: 8,
+              backgroundColor: Colors.black.withOpacity(0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF4AF08A),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '$currentHp/$maxHp',
+              style: AppTextStyles.button.copyWith(
+                color: Colors.white,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HitFlash extends StatelessWidget {
+  final bool active;
+  final Widget child;
+
+  const _HitFlash({
+    required this.active,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: active ? 1.08 : 1.0,
+      duration: const Duration(milliseconds: 90),
+      child: ColorFiltered(
+        colorFilter: ColorFilter.mode(
+          active ? Colors.redAccent : Colors.white,
+          BlendMode.modulate,
+        ),
+        child: child,
       ),
     );
   }
@@ -966,70 +1083,7 @@ class _RewardRow extends StatelessWidget {
   }
 }
 
-class _TypeBadge extends StatelessWidget {
-  final String label;
-  final Color color;
 
-  const _TypeBadge({
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.body.copyWith(
-          fontSize: 10,
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _EncounterBanner extends StatelessWidget {
-  final StudyTopic topic;
-  final Boss boss;
-
-  const _EncounterBanner({
-    required this.topic,
-    required this.boss,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.36),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '${topic.topic} vs ${boss.name}',
-        style: AppTextStyles.body.copyWith(
-          fontSize: 11,
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
 
 class _BattleMessageScaffold extends StatelessWidget {
   final String title;

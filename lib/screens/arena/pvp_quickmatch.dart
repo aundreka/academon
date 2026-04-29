@@ -96,7 +96,9 @@ class _PvpScreenState extends State<PvpQuickmatchScreen> {
 
   Future<void> _refreshLobby() async {
     final future = _loadLobby();
-    setState(() => _lobbyFuture = future);
+    setState(() {
+      _lobbyFuture = future;
+    });
     await future;
   }
 

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,6 +30,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final ItemInventoryService _itemInventoryService;
   late final SupabaseClient _supabase;
+  StreamSubscription<void>? _eggPurchaseSubscription;
+  Timer? _eggCountdownTimer;
   bool _loading = true;
   List<HatcheryEggEntry> _eggs = const [];
   List<Quest> _activeQuests = const [];
@@ -36,13 +39,27 @@ class _HomeScreenState extends State<HomeScreen> {
   int _claimedDailyIndex = -1;
   final Set<String> _claimedQuestIds = <String>{};
   _ActiveModuleCardData? _activeModule;
+  DateTime _countdownNow = DateTime.now().toUtc();
 
   @override
   void initState() {
     super.initState();
     _supabase = Supabase.instance.client;
     _itemInventoryService = ItemInventoryService(_supabase);
+    _eggPurchaseSubscription = ItemInventoryService.eggPurchaseStream.listen((_) {
+      if (!mounted) {
+        return;
+      }
+      _loadHomeData();
+    });
     _loadHomeData();
+  }
+
+  @override
+  void dispose() {
+    _eggPurchaseSubscription?.cancel();
+    _eggCountdownTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadHomeData() async {
@@ -79,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         _eggs = eggs;
+        _countdownNow = DateTime.now().toUtc();
         _activeQuests = questState.quests;
         _claimedQuestIds
           ..clear()
@@ -88,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _activeModule = results[2] as _ActiveModuleCardData?;
         _loading = false;
       });
+      _syncEggCountdownTicker();
     } catch (_) {
       if (!mounted) {
         return;
@@ -101,6 +120,34 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
+  }
+
+  void _syncEggCountdownTicker() {
+    final hasActiveCountdown = _eggs.any((egg) => !_isEggReady(egg) && egg.hatchDuration != null);
+
+    if (hasActiveCountdown) {
+      _eggCountdownTimer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _countdownNow = DateTime.now().toUtc();
+        });
+        _syncEggCountdownTicker();
+      });
+      return;
+    }
+
+    _eggCountdownTimer?.cancel();
+    _eggCountdownTimer = null;
+  }
+
+  bool _isEggReady(HatcheryEggEntry entry) {
+    final duration = entry.hatchDuration;
+    if (duration == null || duration.inSeconds <= 0) {
+      return true;
+    }
+    return !_countdownNow.isBefore(entry.createdAt.add(duration));
   }
 
   Future<_ActiveModuleCardData?> _loadActiveModule(String? userId) async {
@@ -250,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleEggTap(HatcheryEggEntry entry) async {
-    if (!entry.isReadyToHatch) {
+    if (!_isEggReady(entry)) {
       await showDialog<void>(
         context: context,
         builder: (context) {
@@ -607,6 +654,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: AppSpacing.lg),
                       _HomeHatcheryPanel(
                         eggs: _eggs,
+                        now: _countdownNow,
                         loading: _loading,
                         onEggTap: _handleEggTap,
                       ),
@@ -917,11 +965,13 @@ class _IconLauncher extends StatelessWidget {
 
 class _HomeHatcheryPanel extends StatelessWidget {
   final List<HatcheryEggEntry> eggs;
+  final DateTime now;
   final bool loading;
   final ValueChanged<HatcheryEggEntry> onEggTap;
 
   const _HomeHatcheryPanel({
     required this.eggs,
+    required this.now,
     required this.loading,
     required this.onEggTap,
   });
@@ -1012,6 +1062,7 @@ class _HomeHatcheryPanel extends StatelessWidget {
                       Expanded(
                         child: _HatcherySlot(
                           entry: slots[i],
+                          now: now,
                           width: slotWidth,
                           onTap: slots[i] == null ? null : () => onEggTap(slots[i]!),
                         ),
@@ -1030,11 +1081,13 @@ class _HomeHatcheryPanel extends StatelessWidget {
 
 class _HatcherySlot extends StatelessWidget {
   final HatcheryEggEntry? entry;
+  final DateTime now;
   final double width;
   final VoidCallback? onTap;
 
   const _HatcherySlot({
     required this.entry,
+    required this.now,
     required this.width,
     required this.onTap,
   });
@@ -1085,6 +1138,10 @@ class _HatcherySlot extends StatelessWidget {
       );
     }
 
+    final readyToHatch = _isReadyToHatch(entry!, now);
+    final progress = _progressForEntry(entry!, now);
+    final label = _labelForEntry(entry!, now);
+
     return Container(
       constraints: BoxConstraints(minHeight: isCompact ? 220 : 260),
       padding: EdgeInsets.all(isCompact ? AppSpacing.sm : AppSpacing.md),
@@ -1119,7 +1176,7 @@ class _HatcherySlot extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            entry!.label,
+            label,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.body.copyWith(
@@ -1129,7 +1186,7 @@ class _HatcherySlot extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          if (entry!.isReadyToHatch)
+          if (readyToHatch)
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(
@@ -1155,7 +1212,7 @@ class _HatcherySlot extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
                 minHeight: isCompact ? 8 : 10,
-                value: entry!.progress.clamp(0.0, 1.0),
+                value: progress.clamp(0.0, 1.0),
                 backgroundColor: Colors.white.withOpacity(0.14),
                 valueColor: const AlwaysStoppedAnimation<Color>(
                   Color(0xFFFFE08A),
@@ -1165,6 +1222,45 @@ class _HatcherySlot extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  bool _isReadyToHatch(HatcheryEggEntry entry, DateTime now) {
+    final duration = entry.hatchDuration;
+    if (duration == null || duration.inSeconds <= 0) {
+      return true;
+    }
+    return !now.isBefore(entry.createdAt.add(duration));
+  }
+
+  double _progressForEntry(HatcheryEggEntry entry, DateTime now) {
+    final duration = entry.hatchDuration;
+    if (duration == null || duration.inSeconds <= 0) {
+      return 1.0;
+    }
+    final elapsedSeconds = now.difference(entry.createdAt).inSeconds;
+    return (elapsedSeconds / duration.inSeconds).clamp(0.0, 1.0);
+  }
+
+  String _labelForEntry(HatcheryEggEntry entry, DateTime now) {
+    if (_isReadyToHatch(entry, now)) {
+      return 'Ready to hatch';
+    }
+
+    final duration = entry.hatchDuration;
+    if (duration == null || duration.inSeconds <= 0) {
+      return 'Ready to hatch';
+    }
+
+    final remaining = entry.createdAt.add(duration).difference(now);
+    final clamped = remaining.isNegative ? Duration.zero : remaining;
+    return 'Wait ${_formatCountdown(clamped)}';
+  }
+
+  String _formatCountdown(Duration duration) {
+    final hours = duration.inHours.toString().padLeft(2, '0');
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
   }
 }
 

@@ -120,7 +120,9 @@ class _PvpRankedScreenState extends State<PvpRankedScreen> {
 
   Future<void> _refreshLobby() async {
     final future = _loadRankedLobby();
-    setState(() => _lobbyFuture = future);
+    setState(() {
+      _lobbyFuture = future;
+    });
     await future;
   }
 

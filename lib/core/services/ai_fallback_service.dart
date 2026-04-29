@@ -7,20 +7,21 @@ import '../models/study_topic.dart';
 import 'n8n_service.dart';
 
 class AiFallbackService {
-  static const String _baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  static const String _baseUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models';
   static const String _apiKey = String.fromEnvironment(
-    'OPENROUTER_API_KEY',
+    'GEMINI_API_KEY',
     defaultValue: '',
   );
   static const String _model = String.fromEnvironment(
-    'OPENROUTER_MODEL',
-    defaultValue: 'qwen/qwen-plus',
+    'GEMINI_MODEL',
+    defaultValue: 'gemini-1.5-flash',
   );
 
   static void _ensureConfigured() {
     if (_apiKey.isEmpty) {
       throw Exception(
-        'Fallback API is not configured. Run with --dart-define=OPENROUTER_API_KEY=<your-key>',
+        'Gemini fallback is not configured. Run with --dart-define=GEMINI_API_KEY=<your-key>',
       );
     }
   }
@@ -138,43 +139,48 @@ class AiFallbackService {
     required String userPrompt,
   }) async {
     final response = await http.post(
-      Uri.parse(_baseUrl),
-      headers: {
-        'Authorization': 'Bearer $_apiKey',
+      Uri.parse('$_baseUrl/$_model:generateContent?key=$_apiKey'),
+      headers: const {
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://academon.local',
-        'X-Title': 'Academon Study Fallback',
       },
       body: jsonEncode({
-        'model': _model,
-        'messages': [
-          {'role': 'system', 'content': systemPrompt},
-          {'role': 'user', 'content': userPrompt},
+        'systemInstruction': {
+          'parts': [
+            {'text': systemPrompt},
+          ],
+        },
+        'contents': [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': userPrompt},
+            ],
+          },
         ],
+        'generationConfig': {
+          'responseMimeType': 'application/json',
+        },
       }),
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Fallback API failed: ${response.statusCode} ${response.body}');
+      throw Exception('Gemini fallback failed: ${response.statusCode} ${response.body}');
     }
 
     final decoded = jsonDecode(response.body);
     String? content;
     if (decoded is Map<String, dynamic>) {
-      final choices = decoded['choices'];
-      if (choices is List && choices.isNotEmpty) {
-        final firstChoice = choices.first;
-        if (firstChoice is Map<String, dynamic>) {
-          final message = firstChoice['message'];
-          if (message is Map<String, dynamic>) {
-            final maybeContent = message['content'];
-            if (maybeContent is String) {
-              content = maybeContent;
-            } else if (maybeContent is List) {
-              // Some OpenRouter-compatible models return content blocks.
-              for (final block in maybeContent) {
-                if (block is Map<String, dynamic> && block['type'] == 'text') {
-                  final text = block['text'];
+      final candidates = decoded['candidates'];
+      if (candidates is List && candidates.isNotEmpty) {
+        final firstCandidate = candidates.first;
+        if (firstCandidate is Map<String, dynamic>) {
+          final candidateContent = firstCandidate['content'];
+          if (candidateContent is Map<String, dynamic>) {
+            final parts = candidateContent['parts'];
+            if (parts is List) {
+              for (final part in parts) {
+                if (part is Map<String, dynamic>) {
+                  final text = part['text'];
                   if (text is String && text.trim().isNotEmpty) {
                     content = text;
                     break;
@@ -188,7 +194,7 @@ class AiFallbackService {
     }
 
     if (content is! String || content.trim().isEmpty) {
-      throw Exception('Fallback API returned an empty response.');
+      throw Exception('Gemini fallback returned an empty response.');
     }
 
     return content.trim();
@@ -198,7 +204,7 @@ class AiFallbackService {
     final normalized = _extractJsonPayload(raw);
     final decoded = jsonDecode(normalized);
     if (decoded is! Map<String, dynamic>) {
-      throw Exception('Fallback flashcard response is not a JSON object.');
+      throw Exception('Gemini fallback response is not a JSON object.');
     }
     return decoded;
   }
@@ -215,7 +221,7 @@ class AiFallbackService {
         return modules;
       }
     }
-    throw Exception('Fallback reviewer response is not a supported JSON format.');
+    throw Exception('Gemini fallback reviewer response is not a supported JSON format.');
   }
 
   static String _extractJsonPayload(String raw) {

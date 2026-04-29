@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -67,31 +68,26 @@ class HatchResult {
 class HatcheryEggEntry {
   final String eggInstanceId;
   final InventoryItem item;
-  final String label;
-  final double progress;
-  final bool isReadyToHatch;
   final DateTime createdAt;
-  final int battlesCompleted;
-  final int hatchBattleRequirement;
   final Duration? hatchDuration;
 
   const HatcheryEggEntry({
     required this.eggInstanceId,
     required this.item,
-    required this.label,
-    required this.progress,
-    required this.isReadyToHatch,
     required this.createdAt,
-    required this.battlesCompleted,
-    required this.hatchBattleRequirement,
     required this.hatchDuration,
   });
 }
 
 class ItemInventoryService {
+  static final StreamController<void> _eggPurchaseController =
+      StreamController<void>.broadcast();
+
   final SupabaseClient _supabase;
 
   const ItemInventoryService(this._supabase);
+
+  static Stream<void> get eggPurchaseStream => _eggPurchaseController.stream;
 
   Future<void> grantReward(Reward reward) async {
     final user = _supabase.auth.currentUser;
@@ -158,7 +154,6 @@ class ItemInventoryService {
           'category, item_type, '
           'is_premium, is_consumable, evolution_stages_granted, xp_multiplier, '
           'xp_boost_battle_count, egg_subject_id, egg_rarity, '
-          'egg_hatch_battle_requirement, '
           'egg_hatch_duration_seconds, energy_restore_amount, '
           'energy_restores_to_full, energy_pve_only, battle_ticket_mode, '
           'battle_ticket_required_per_entry'
@@ -202,8 +197,7 @@ class ItemInventoryService {
     final rows = await _supabase
         .from('user_egg_instances')
         .select(
-          'id, inventory_item_id, subject_id, hatch_battle_requirement, '
-          'battles_completed, hatch_duration_seconds, egg_rarity, created_at',
+          'id, inventory_item_id, subject_id, hatch_duration_seconds, egg_rarity, created_at',
         )
         .eq('user_id', user.id)
         .filter('hatched_at', 'is', null)
@@ -219,7 +213,7 @@ class ItemInventoryService {
       final createdAt = DateTime.tryParse(map['created_at'] as String? ?? '')?.toUtc() ?? now;
       final eggProgress = EggProgress(
         subjectId: map['subject_id'] as String?,
-        hatchBattleRequirement: (map['hatch_battle_requirement'] as int?) ?? 0,
+        hatchBattleRequirement: 0,
         hatchDuration: hatchDurationSeconds == null
             ? rarity.hatchDuration
             : Duration(seconds: hatchDurationSeconds),
@@ -232,18 +226,7 @@ class ItemInventoryService {
             eggProgress: eggProgress,
           );
 
-      final battlesCompleted = (map['battles_completed'] as int?) ?? 0;
-      final battleRequirement = eggProgress.hatchBattleRequirement;
-      final battleProgress = battleRequirement <= 0
-          ? 0.0
-          : battlesCompleted / battleRequirement;
       final duration = eggProgress.hatchDuration;
-      final elapsedSeconds = now.difference(createdAt).inSeconds;
-      final timeProgress = duration == null || duration.inSeconds <= 0
-          ? 0.0
-          : elapsedSeconds / duration.inSeconds;
-      final progress = max(battleProgress, timeProgress).clamp(0.0, 1.0);
-      final isReady = progress >= 1.0;
 
       return HatcheryEggEntry(
         eggInstanceId: map['id'] as String? ?? '',
@@ -257,19 +240,7 @@ class ItemInventoryService {
           rarity: rarity,
           eggProgress: eggProgress,
         ),
-        label: _buildEggLabel(
-          isReady: isReady,
-          battlesCompleted: battlesCompleted,
-          battleRequirement: battleRequirement,
-          duration: duration,
-          createdAt: createdAt,
-          now: now,
-        ),
-        progress: progress,
-        isReadyToHatch: isReady,
         createdAt: createdAt,
-        battlesCompleted: battlesCompleted,
-        hatchBattleRequirement: battleRequirement,
         hatchDuration: duration,
       );
     }).toList();
@@ -340,13 +311,12 @@ class ItemInventoryService {
         'user_id': user.id,
         'inventory_item_id': item.id,
         'subject_id': item.eggProgress?.subjectId,
-        'hatch_battle_requirement': item.eggProgress?.hatchBattleRequirement ?? 0,
-        'battles_completed': 0,
         'hatch_duration_seconds': item.eggProgress?.hatchDuration?.inSeconds,
         'egg_rarity': (item.eggRarity ?? EggRarity.common).storageValue,
         'created_at': DateTime.now().toUtc().toIso8601String(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
+      _eggPurchaseController.add(null);
     } else {
       final existing = await _supabase
           .from('user_inventory')
@@ -513,8 +483,6 @@ class ItemInventoryService {
         'user_id': userId,
         'inventory_item_id': item.id,
         'subject_id': item.eggProgress?.subjectId,
-        'hatch_battle_requirement': item.eggProgress?.hatchBattleRequirement ?? 0,
-        'battles_completed': 0,
         'hatch_duration_seconds': item.eggProgress?.hatchDuration?.inSeconds,
         'egg_rarity': (item.eggRarity ?? EggRarity.common).storageValue,
         'created_at': now,
@@ -606,34 +574,6 @@ class ItemInventoryService {
     return pool[Random().nextInt(pool.length)];
   }
 
-  String _buildEggLabel({
-    required bool isReady,
-    required int battlesCompleted,
-    required int battleRequirement,
-    required Duration? duration,
-    required DateTime createdAt,
-    required DateTime now,
-  }) {
-    if (isReady) {
-      return 'Ready to hatch';
-    }
-
-    if (battleRequirement > 0) {
-      return '$battlesCompleted / $battleRequirement battles complete';
-    }
-
-    if (duration == null) {
-      return 'Still warming up';
-    }
-
-    final elapsed = now.difference(createdAt);
-    final remaining = duration - elapsed;
-    final clamped = remaining.isNegative ? Duration.zero : remaining;
-    final hours = clamped.inHours;
-    final minutes = clamped.inMinutes.remainder(60);
-    return '${hours}h ${minutes}m remaining';
-  }
-
   Future<void> _decrementInventoryItem(
     String userId,
     String itemId,
@@ -662,8 +602,6 @@ class ItemInventoryService {
     final category = itemCategoryFromString(row['category'] as String?);
     final eggRarity = eggRarityFromString(row['egg_rarity'] as String?);
     final hatchDurationSeconds = row['egg_hatch_duration_seconds'] as int?;
-    final hatchBattleRequirement =
-        (row['egg_hatch_battle_requirement'] as int?) ?? 0;
 
     return InventoryItem(
       id: (row['id'] as String?) ?? '',
@@ -690,7 +628,7 @@ class ItemInventoryService {
       eggProgress: itemType == InventoryItemType.egg
           ? EggProgress(
               subjectId: row['egg_subject_id'] as String?,
-              hatchBattleRequirement: hatchBattleRequirement,
+              hatchBattleRequirement: 0,
               hatchDuration: hatchDurationSeconds == null
                   ? null
                   : Duration(seconds: hatchDurationSeconds),

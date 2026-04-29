@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../data/questions.dart';
 import '../models/study_topic.dart';
 import 'ai_fallback_service.dart';
 import 'n8n_service.dart';
@@ -8,7 +9,50 @@ class StudyGenerationService {
   const StudyGenerationService();
 
   Future<StudyTopic> generateTopicFromPrompt(String prompt) async {
-    final generated = await N8nService.generateTopic(prompt);
+    try {
+      final generated = await N8nService.generateTopic(prompt);
+      return _studyTopicFromMap(generated);
+    } catch (_) {
+      try {
+        return await AiFallbackService.generateTopicFromPrompt(prompt);
+      } catch (_) {
+        return buildFallbackStudyTopic(prompt);
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> generateFlashcards(Uint8List pdfBytes) async {
+    try {
+      return await N8nService.generateFlashcards(pdfBytes);
+    } catch (n8nError) {
+      try {
+        return await AiFallbackService.generateFlashcardsFromPdf(pdfBytes);
+      } catch (apiError) {
+        throw Exception(
+          'Both generation paths failed.\nN8N: $n8nError\nGemini fallback: $apiError',
+        );
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> generateReviewer(
+    Uint8List pdfBytes,
+    String fileName,
+  ) async {
+    try {
+      return await N8nService.uploadSyllabus(pdfBytes, fileName);
+    } catch (n8nError) {
+      try {
+        return await AiFallbackService.generateReviewerFromPdf(pdfBytes);
+      } catch (apiError) {
+        throw Exception(
+          'Both generation paths failed.\nN8N: $n8nError\nGemini fallback: $apiError',
+        );
+      }
+    }
+  }
+
+  StudyTopic _studyTopicFromMap(Map<String, dynamic> generated) {
     final rawLessons = generated['lessons'] as List<dynamic>? ?? const [];
     final lessons = <StudyLesson>[];
 
@@ -47,36 +91,5 @@ class StudyGenerationService {
       isOwnedByUser: false,
       lessons: lessons,
     );
-  }
-
-  Future<List<Map<String, dynamic>>> generateFlashcards(Uint8List pdfBytes) async {
-    try {
-      return await N8nService.generateFlashcards(pdfBytes);
-    } catch (n8nError) {
-      try {
-        return await AiFallbackService.generateFlashcardsFromPdf(pdfBytes);
-      } catch (apiError) {
-        throw Exception(
-          'Both generation paths failed.\nN8N: $n8nError\nFallback API: $apiError',
-        );
-      }
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> generateReviewer(
-    Uint8List pdfBytes,
-    String fileName,
-  ) async {
-    try {
-      return await N8nService.uploadSyllabus(pdfBytes, fileName);
-    } catch (n8nError) {
-      try {
-        return await AiFallbackService.generateReviewerFromPdf(pdfBytes);
-      } catch (apiError) {
-        throw Exception(
-          'Both generation paths failed.\nN8N: $n8nError\nFallback API: $apiError',
-        );
-      }
-    }
   }
 }

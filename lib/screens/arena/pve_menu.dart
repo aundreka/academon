@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/data/topics.dart';
 import '../../core/models/study_topic.dart';
 import '../../core/services/study_topic_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
-import '../../core/widgets/topics/topic_views.dart';
 import 'pve.dart';
 
 class PveScreen extends StatefulWidget {
@@ -21,6 +21,7 @@ class _PveScreenState extends State<PveScreen> {
   late Future<_PveLobbyData> _lobbyFuture;
   final TextEditingController _chatController = TextEditingController();
   bool _generating = false;
+  String? _convertingTopicId;
 
   @override
   void initState() {
@@ -36,13 +37,8 @@ class _PveScreenState extends State<PveScreen> {
   }
 
   Future<_PveLobbyData> _loadLobbyData() async {
-    final results = await Future.wait<dynamic>([
-      _topicService.fetchUserModules(),
-      _topicService.fetchAvailableTopics(),
-    ]);
-
-    final modules = List<StudyTopic>.from(results[0] as List<StudyTopic>);
-    final topics = List<StudyTopic>.from(results[1] as List<StudyTopic>);
+    final modules = List<StudyTopic>.from(await _topicService.fetchUserModules());
+    final topics = List<StudyTopic>.from(seededTopics);
 
     int compareTopics(StudyTopic a, StudyTopic b) {
       final popularity = b.popularityCount.compareTo(a.popularityCount);
@@ -60,7 +56,9 @@ class _PveScreenState extends State<PveScreen> {
 
   Future<void> _refreshLobby() async {
     final future = _loadLobbyData();
-    setState(() => _lobbyFuture = future);
+    setState(() {
+      _lobbyFuture = future;
+    });
     await future;
   }
 
@@ -68,7 +66,9 @@ class _PveScreenState extends State<PveScreen> {
     final prompt = _chatController.text.trim();
     if (prompt.isEmpty || _generating) return;
 
-    setState(() => _generating = true);
+    setState(() {
+      _generating = true;
+    });
 
     try {
       final generatedModule = await _topicService.createGeneratedTopicModule(prompt);
@@ -102,7 +102,9 @@ class _PveScreenState extends State<PveScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() => _generating = false);
+        setState(() {
+          _generating = false;
+        });
       }
     }
   }
@@ -113,6 +115,44 @@ class _PveScreenState extends State<PveScreen> {
         builder: (_) => PveBattleScreen(topic: topic),
       ),
     );
+  }
+
+  Future<void> _convertTopicToModule(StudyTopic topic) async {
+    if (_convertingTopicId != null) return;
+
+    setState(() {
+      _convertingTopicId = topic.id;
+    });
+    try {
+      final created = await _topicService.createModuleFromTopic(topic);
+      await _refreshLobby();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${created.title} is ready in your modules.',
+            style: AppTextStyles.body.copyWith(color: Colors.white),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.toString().replaceFirst('Exception: ', ''),
+            style: AppTextStyles.body.copyWith(color: Colors.white),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _convertingTopicId = null;
+        });
+      }
+    }
   }
 
   @override
@@ -175,8 +215,8 @@ class _PveScreenState extends State<PveScreen> {
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     const _SectionHeader(
-                      title: 'Custom Stages',
-                      subtitle: 'Your generated and saved training levels.',
+                      title: 'Train Your Brain',
+                      subtitle: 'Strengthen your pokemons through battle.',
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     if (lobby.modules.isEmpty)
@@ -190,7 +230,6 @@ class _PveScreenState extends State<PveScreen> {
                           padding: const EdgeInsets.only(bottom: AppSpacing.md),
                           child: _LevelMenuTile(
                             topic: entry.value,
-                            levelNumber: entry.key + 1,
                             badgeLabel:
                                 '${entry.value.category} | ${entry.value.popularityCount} plays',
                             accentColor: const Color(0xFF2FBD7C),
@@ -200,8 +239,8 @@ class _PveScreenState extends State<PveScreen> {
                       ),
                     const SizedBox(height: AppSpacing.lg),
                     const _SectionHeader(
-                      title: 'Open Stages',
-                      subtitle: 'Public levels ready for your next training run.',
+                      title: 'Choose a Topic to Study',
+                      subtitle: 'Convert a topic into your module before battling.',
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     if (lobby.topics.isEmpty)
@@ -214,11 +253,12 @@ class _PveScreenState extends State<PveScreen> {
                           padding: const EdgeInsets.only(bottom: AppSpacing.md),
                           child: _LevelMenuTile(
                             topic: entry.value,
-                            levelNumber: entry.key + 1,
                             badgeLabel:
                                 '${entry.value.popularityCount} learners | ${entry.value.category}',
                             accentColor: const Color(0xFFFFB347),
-                            onTap: () => _openTopic(entry.value),
+                            onTap: _convertingTopicId == entry.value.id
+                                ? null
+                                : () => _convertTopicToModule(entry.value),
                           ),
                         ),
                       ),
@@ -454,14 +494,12 @@ class _SectionHeader extends StatelessWidget {
 
 class _LevelMenuTile extends StatelessWidget {
   final StudyTopic topic;
-  final int levelNumber;
   final String badgeLabel;
   final Color accentColor;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _LevelMenuTile({
     required this.topic,
-    required this.levelNumber,
     required this.badgeLabel,
     required this.accentColor,
     required this.onTap,
@@ -518,157 +556,82 @@ class _LevelMenuTile extends StatelessWidget {
                 ),
                 Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              accentColor,
-                              accentColor.withOpacity(0.72),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(22),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 5,
                         ),
-                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.14),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                         child: Text(
-                          '$levelNumber',
-                          style: AppTextStyles.title.copyWith(
-                            fontSize: 22,
-                            color: Colors.white,
+                          badgeLabel,
+                          style: AppTextStyles.body.copyWith(
+                            fontSize: 10,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.sm,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.14),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                badgeLabel,
-                                style: AppTextStyles.body.copyWith(
-                                  fontSize: 10,
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        topic.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.button.copyWith(
+                          fontSize: 16,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        topic.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accentColor.withOpacity(0.16),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              topic.difficulty.toUpperCase(),
+                              style: AppTextStyles.body.copyWith(
+                                fontSize: 10,
+                                color: accentColor,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              topic.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.button.copyWith(
-                                fontSize: 16,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              topic.description,
-                              maxLines: 2,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              topic.topic,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.body.copyWith(
-                                fontSize: 12,
+                                fontSize: 11,
                                 color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.sm),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.sm,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: accentColor.withOpacity(0.16),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    topic.difficulty.toUpperCase(),
-                                    style: AppTextStyles.body.copyWith(
-                                      fontSize: 10,
-                                      color: accentColor,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    topic.topic,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTextStyles.body.copyWith(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Container(
-                        width: 78,
-                        height: 94,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.16),
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: Colors.white.withOpacity(0.06)),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: StudyTopicHero(topic: topic),
-                              ),
-                            ),
-                            Positioned(
-                              right: 8,
-                              bottom: 8,
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: accentColor,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: accentColor.withOpacity(0.24),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

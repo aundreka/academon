@@ -18,11 +18,6 @@ class StudyScreen extends StatefulWidget {
 
 class _StudyScreenState extends State<StudyScreen> {
   int? _selectedTabIndex;
-  final int _level = 7;
-  final int _xp = 1280;
-  final int _xpToNext = 1600;
-  final int _streakDays = 4;
-  final int _todayQuestsDone = 1;
 
   static const List<_StudyTabItem> _tabs = [
     _StudyTabItem(
@@ -113,7 +108,6 @@ class _StudyScreenState extends State<StudyScreen> {
     );
   }
   Widget _buildTabLauncher() {
-    final levelProgress = _xp / _xpToNext;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -136,21 +130,6 @@ class _StudyScreenState extends State<StudyScreen> {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.background.withOpacity(0.45),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.6)),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Lv$_level',
-                        style: AppTextStyles.button.copyWith(fontSize: 12),
-                      ),
-                    ),
-                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
@@ -174,40 +153,11 @@ class _StudyScreenState extends State<StudyScreen> {
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: levelProgress.clamp(0.0, 1.0),
-                  minHeight: 7,
-                  backgroundColor: AppColors.background.withOpacity(0.45),
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '$_xp / $_xpToNext XP to next level',
-                style: AppTextStyles.body.copyWith(
-                  fontSize: 10,
-                  color: AppColors.textSecondary,
-                ),
-              ),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            _buildBadgeChip(
-              icon: Icons.local_fire_department_outlined,
-              label: '$_streakDays day streak',
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            _buildBadgeChip(
-              icon: Icons.workspace_premium_outlined,
-              label: '$_todayQuestsDone/3 quests',
-            ),
-          ],
-        ),
+       
         const SizedBox(height: AppSpacing.md),
         Text(
           'Daily Mission Board',
@@ -380,34 +330,6 @@ class _StudyScreenState extends State<StudyScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildBadgeChip({required IconData icon, required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.primary.withOpacity(0.28)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: AppColors.accent),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: AppTextStyles.body.copyWith(
-              fontSize: 10,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

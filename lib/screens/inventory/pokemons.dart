@@ -36,7 +36,6 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
 
   List<_OwnedPokemonEntry> _entries = const [];
   List<_PokemonTeamView> _teams = const [];
-  String? _selectedTeamId;
   List<String> _typeFilters = const [_allFilter];
 
   String _selectedTypeFilter = _allFilter;
@@ -124,7 +123,6 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
         resolvedTeams = createdTeam == null ? const [] : [createdTeam];
       }
 
-      final selectedTeamId = _resolveSelectedTeamId(resolvedTeams);
       final typeFilters = [
         _allFilter,
         ...{
@@ -136,7 +134,6 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
       setState(() {
         _entries = entries;
         _teams = resolvedTeams;
-        _selectedTeamId = selectedTeamId;
         _typeFilters = typeFilters;
         if (!_typeFilters.contains(_selectedTypeFilter)) {
           _selectedTypeFilter = _allFilter;
@@ -219,21 +216,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
     );
   }
 
-  String? _resolveSelectedTeamId(List<_PokemonTeamView> teams) {
-    if (teams.isEmpty) return null;
-    final existing = _selectedTeamId;
-    if (existing != null && teams.any((team) => team.id == existing)) {
-      return existing;
-    }
-    return teams.first.id;
-  }
-
   _PokemonTeamView? get _selectedTeam {
-    final id = _selectedTeamId;
-    if (id == null) return _teams.isEmpty ? null : _teams.first;
-    for (final team in _teams) {
-      if (team.id == id) return team;
-    }
     return _teams.isEmpty ? null : _teams.first;
   }
 
@@ -307,7 +290,6 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return _TeamEditorSheet(
-          teamName: team.name,
           entries: _entries,
           initialSlots: initialSlots,
         );
@@ -518,7 +500,6 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
 
   Widget _buildBattleDeckSection() {
     final battleDeck = _battleDeckEntries;
-    final selectedTeam = _selectedTeam;
 
     return Container(
       width: double.infinity,
@@ -590,68 +571,33 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                 painter: _DeckTexturePainter(),
               ),
             ),
+            Positioned(
+              top: AppSpacing.md,
+              right: AppSpacing.md,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: _selectedTeam == null || _savingTeam ? null : _openTeamEditor,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    child: Icon(
+                      Icons.edit_rounded,
+                      color: Colors.white.withOpacity(_savingTeam ? 0.5 : 0.92),
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Battle Deck',
-                              style: AppTextStyles.title.copyWith(fontSize: 18),
-                            ),
-                            if (_teams.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              SizedBox(
-                                width: 220,
-                                child: _TeamDropdown(
-                                  teams: _teams,
-                                  selectedTeamId: _selectedTeamId,
-                                  onChanged: (value) {
-                                    setState(() => _selectedTeamId = value);
-                                  },
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(999),
-                          onTap: selectedTeam == null || _savingTeam ? null : _openTeamEditor,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.sm,
-                              vertical: AppSpacing.sm,
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  _savingTeam ? 'Saving...' : 'Edit Team',
-                                  style: AppTextStyles.button.copyWith(
-                                    fontSize: 14,
-                                    color: AppColors.accent,
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.xs),
-                                Icon(
-                                  Icons.edit_rounded,
-                                  color: AppColors.accent,
-                                  size: 18,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Battle Deck',
+                    style: AppTextStyles.title.copyWith(fontSize: 18),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   if (battleDeck.isEmpty)
@@ -665,7 +611,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                       child: Text(
                         _entries.isEmpty
                             ? 'You do not have any Pokemon in your database yet.'
-                            : 'This team is empty. Tap Edit Team to assign up to 5 Pokemon.',
+                            : 'This deck is empty. Tap the edit icon to assign up to 5 Pokemon.',
                         style: AppTextStyles.body.copyWith(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w700,
@@ -1063,54 +1009,6 @@ class _SwitcherChip extends StatelessWidget {
   }
 }
 
-class _TeamDropdown extends StatelessWidget {
-  final List<_PokemonTeamView> teams;
-  final String? selectedTeamId;
-  final ValueChanged<String?> onChanged;
-
-  const _TeamDropdown({
-    required this.teams,
-    required this.selectedTeamId,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final resolvedValue = teams.any((team) => team.id == selectedTeamId)
-        ? selectedTeamId
-        : teams.first.id;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.16),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: resolvedValue,
-          isExpanded: true,
-          dropdownColor: AppColors.card,
-          iconEnabledColor: AppColors.textPrimary,
-          style: AppTextStyles.body.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-          onChanged: onChanged,
-          items: teams
-              .map(
-                (team) => DropdownMenuItem<String>(
-                  value: team.id,
-                  child: Text(team.name),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-  }
-}
-
 class _DeckTexturePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -1162,12 +1060,10 @@ class _HoverLiftCardState extends State<_HoverLiftCard> {
 }
 
 class _TeamEditorSheet extends StatefulWidget {
-  final String teamName;
   final List<_OwnedPokemonEntry> entries;
   final List<String?> initialSlots;
 
   const _TeamEditorSheet({
-    required this.teamName,
     required this.entries,
     required this.initialSlots,
   });
@@ -1206,7 +1102,7 @@ class _TeamEditorSheetState extends State<_TeamEditorSheet> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Edit ${widget.teamName}',
+                  'Edit Battle Deck',
                   style: AppTextStyles.title.copyWith(fontSize: 18),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -1253,7 +1149,7 @@ class _TeamEditorSheetState extends State<_TeamEditorSheet> {
                       child: FilledButton(
                         onPressed: () => Navigator.of(context).pop(_slots),
                         child: Text(
-                          'Save Team',
+                          'Save Deck',
                           style: AppTextStyles.button.copyWith(fontSize: 13),
                         ),
                       ),

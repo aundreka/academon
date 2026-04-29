@@ -33,7 +33,9 @@ class _ModuleLibraryScreenState extends State<ModuleLibraryScreen> {
 
   Future<void> _refreshModules() async {
     final future = _topicService.fetchUserModules();
-    setState(() => _modulesFuture = future);
+    setState(() {
+      _modulesFuture = future;
+    });
     await future;
   }
 

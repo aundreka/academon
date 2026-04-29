@@ -3,10 +3,19 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/questions.dart';
 import '../models/study_topic.dart';
 import 'study_generation_service.dart';
 
 class StudyTopicService {
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-'
+    r'[0-9a-fA-F]{4}-'
+    r'[0-9a-fA-F]{4}-'
+    r'[0-9a-fA-F]{4}-'
+    r'[0-9a-fA-F]{12}$',
+  );
+
   final SupabaseClient _supabase;
   final StudyGenerationService _generationService;
 
@@ -17,7 +26,7 @@ class StudyTopicService {
 
   Future<List<StudyTopic>> fetchUserModules() async {
     final user = _supabase.auth.currentUser;
-    if (user == null) return const <StudyTopic>[];
+    if (user == null) return <StudyTopic>[];
 
     final moduleRows = await _supabase
         .from('modules')
@@ -28,7 +37,7 @@ class StudyTopicService {
         .eq('user_id', user.id)
         .order('updated_at', ascending: false);
 
-    if (moduleRows.isEmpty) return const <StudyTopic>[];
+    if (moduleRows.isEmpty) return <StudyTopic>[];
 
     final modules = <StudyTopic>[];
     for (final row in moduleRows) {
@@ -65,7 +74,7 @@ class StudyTopicService {
         .order('popularity_count', ascending: false)
         .order('updated_at', ascending: false);
 
-    if (topicRows.isEmpty) return const <StudyTopic>[];
+    if (topicRows.isEmpty) return <StudyTopic>[];
 
     final topics = <StudyTopic>[];
     for (final row in topicRows) {
@@ -95,11 +104,24 @@ class StudyTopicService {
     }
 
     final now = DateTime.now().toUtc().toIso8601String();
+    final normalizedLinkedTopicId = _normalizeLinkedTopicId(linkedTopicId);
+    final existingModule = await _findExistingModule(
+      userId: user.id,
+      linkedTopicId: normalizedLinkedTopicId,
+      title: title,
+      topic: topic,
+      category: category,
+      difficulty: difficulty,
+    );
+    if (existingModule != null) {
+      return fetchModuleDetail(existingModule);
+    }
+
     final module = await _supabase
         .from('modules')
         .insert({
           'user_id': user.id,
-          'topic_id': linkedTopicId,
+          'topic_id': normalizedLinkedTopicId,
           'title': title.trim(),
           'topic': topic.trim(),
           'category': category.trim(),
@@ -134,6 +156,19 @@ class StudyTopicService {
     }
 
     return fetchModuleDetail(moduleId);
+  }
+
+  Future<StudyTopic> createModuleFromTopic(StudyTopic topic) {
+    return createModule(
+      title: topic.title,
+      topic: topic.topic,
+      summary: topic.summary,
+      difficulty: topic.difficulty,
+      category: topic.category,
+      lessons: topic.lessons,
+      sourceType: 'topic',
+      linkedTopicId: _normalizeLinkedTopicId(topic.id),
+    );
   }
 
   Future<StudyTopic> createGeneratedTopicModule(String prompt) async {
@@ -178,7 +213,7 @@ class StudyTopicService {
           );
     }
 
-    return createModule(
+    final module = await createModule(
       title: generated.title,
       topic: generated.topic,
       summary: generated.summary,
@@ -190,6 +225,9 @@ class StudyTopicService {
       imageBytes: generated.imageBytes,
       imageExtension: 'png',
     );
+
+    await _ensureModuleQuestions(module);
+    return module;
   }
 
   Future<List<StudyLesson>> _fetchModuleLessons(String moduleId) async {
@@ -226,6 +264,92 @@ class StudyTopicService {
       _ => 'image/png',
     };
     return 'data:$mimeType;base64,${base64Encode(imageBytes)}';
+  }
+
+  String? _normalizeLinkedTopicId(String? topicId) {
+    final trimmed = topicId?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return _uuidPattern.hasMatch(trimmed) ? trimmed : null;
+  }
+
+  Future<String?> _findExistingModule({
+    required String userId,
+    required String? linkedTopicId,
+    required String title,
+    required String topic,
+    required String category,
+    required String difficulty,
+  }) async {
+    if (linkedTopicId != null) {
+      final existing = await _supabase
+          .from('modules')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('topic_id', linkedTopicId)
+          .maybeSingle();
+      final existingId = (existing?['id'] as String?)?.trim();
+      if (existingId != null && existingId.isNotEmpty) {
+        return existingId;
+      }
+    }
+
+    final rows = await _supabase
+        .from('modules')
+        .select('id, title, topic, category, difficulty')
+        .eq('user_id', userId);
+
+    final normalizedTitle = _normalizeDuplicateKey(title);
+    final normalizedTopic = _normalizeDuplicateKey(topic);
+    final normalizedCategory = _normalizeDuplicateKey(category);
+    final normalizedDifficulty = _normalizeDuplicateKey(difficulty);
+
+    for (final row in rows.whereType<Map<String, dynamic>>()) {
+      if (_normalizeDuplicateKey(row['title'] as String?) != normalizedTitle) continue;
+      if (_normalizeDuplicateKey(row['topic'] as String?) != normalizedTopic) continue;
+      if (_normalizeDuplicateKey(row['category'] as String?) != normalizedCategory) continue;
+      if (_normalizeDuplicateKey(row['difficulty'] as String?) != normalizedDifficulty) continue;
+
+      final existingId = (row['id'] as String?)?.trim();
+      if (existingId != null && existingId.isNotEmpty) {
+        return existingId;
+      }
+    }
+
+    return null;
+  }
+
+  String _normalizeDuplicateKey(String? value) {
+    return value?.trim().toLowerCase() ?? '';
+  }
+
+  Future<void> _ensureModuleQuestions(StudyTopic module) async {
+    final existing = await _supabase
+        .from('questions')
+        .select('id')
+        .eq('module_id', module.id)
+        .eq('question_type', 'mcq')
+        .limit(1);
+    if (existing.isNotEmpty) {
+      return;
+    }
+
+    final fallbackQuestions = buildFallbackModuleQuestions(module);
+    if (fallbackQuestions.isEmpty) {
+      return;
+    }
+
+    await _supabase.from('questions').insert(
+          fallbackQuestions
+              .asMap()
+              .entries
+              .map(
+                (entry) => entry.value.toInsertMap(
+                  moduleId: module.id,
+                  orderIndex: entry.key,
+                ),
+              )
+              .toList(),
+        );
   }
 }
 
