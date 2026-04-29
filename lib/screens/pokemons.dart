@@ -332,14 +332,16 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                         width: cardWidth,
                         child: Stack(
                           children: [
-                            PokemonCard(
-                              pokemon: entry.pokemon,
-                              level: entry.level,
-                              xp: entry.xp,
-                              xpGoal: entry.xpGoal,
-                              width: cardWidth,
-                              height: cardWidth * 1.5,
-                              onTap: () => _showPokemonDetails(entry.pokemon),
+                            _HoverLiftCard(
+                              child: PokemonCard(
+                                pokemon: entry.pokemon,
+                                level: entry.level,
+                                xp: entry.xp,
+                                xpGoal: entry.xpGoal,
+                                width: cardWidth,
+                                height: cardWidth * 1.5,
+                                onTap: () => _showPokemonDetails(entry.pokemon),
+                              ),
                             ),
                             if (entry.inDeck)
                               Positioned(
@@ -495,6 +497,10 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
 
   int _rarityWeight(String rarity) {
     switch (rarity.toLowerCase()) {
+      case 'legendary':
+        return 5;
+      case 'ultra rare':
+        return 4;
       case 'rare':
         return 3;
       case 'uncommon':
@@ -592,6 +598,35 @@ class _DeckTexturePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _HoverLiftCard extends StatefulWidget {
+  final Widget child;
+
+  const _HoverLiftCard({
+    required this.child,
+  });
+
+  @override
+  State<_HoverLiftCard> createState() => _HoverLiftCardState();
+}
+
+class _HoverLiftCardState extends State<_HoverLiftCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.identity()..translate(0.0, _hovered ? -8.0 : 0.0),
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 class _PokemonInventoryEntry {
