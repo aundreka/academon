@@ -23,6 +23,10 @@ class AppTopNav extends StatefulWidget {
 class _AppTopNavState extends State<AppTopNav> {
   late final SupabaseClient _supabase;
   late Future<_TopNavData> _topNavFuture;
+  static _TopNavData? _cachedTopNavData;
+  static String? _cachedUserId;
+  static DateTime? _cachedAt;
+  static const Duration _cacheLifetime = Duration(minutes: 5);
 
   @override
   void initState() {
@@ -33,6 +37,9 @@ class _AppTopNavState extends State<AppTopNav> {
 
   void _refresh() {
     if (!mounted) return;
+    _cachedTopNavData = null;
+    _cachedUserId = null;
+    _cachedAt = null;
     setState(() {
       _topNavFuture = _loadTopNavData();
     });
@@ -41,7 +48,19 @@ class _AppTopNavState extends State<AppTopNav> {
   Future<_TopNavData> _loadTopNavData() async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
+      _cachedTopNavData = const _TopNavData.guest();
+      _cachedUserId = null;
+      _cachedAt = DateTime.now();
       return const _TopNavData.guest();
+    }
+
+    final cacheIsFresh =
+        _cachedTopNavData != null &&
+        _cachedUserId == user.id &&
+        _cachedAt != null &&
+        DateTime.now().difference(_cachedAt!) < _cacheLifetime;
+    if (cacheIsFresh) {
+      return _cachedTopNavData!;
     }
 
     final ensuredProfile = await CurrentUserProfileService(_supabase)
@@ -63,7 +82,7 @@ class _AppTopNavState extends State<AppTopNav> {
     final profile = results[0] as Map<String, dynamic>?;
     final stats = results[1] as Map<String, dynamic>?;
 
-    return _TopNavData(
+    final resolvedData = _TopNavData(
       username:
           (profile?['username'] as String?) ?? ensuredProfile?.username ?? 'Trainer',
       avatarPath:
@@ -73,6 +92,12 @@ class _AppTopNavState extends State<AppTopNav> {
       coins: (stats?['coins'] as int?) ?? 0,
       streak: (stats?['streak'] as int?) ?? 0,
     );
+
+    _cachedTopNavData = resolvedData;
+    _cachedUserId = user.id;
+    _cachedAt = DateTime.now();
+
+    return resolvedData;
   }
 
   @override
@@ -80,7 +105,10 @@ class _AppTopNavState extends State<AppTopNav> {
     return FutureBuilder<_TopNavData>(
       future: _topNavFuture,
       builder: (context, snapshot) {
-        final data = snapshot.data ?? const _TopNavData.guest();
+        final data =
+            snapshot.data ??
+            _cachedTopNavData ??
+            const _TopNavData.guest();
         final isLoading = snapshot.connectionState != ConnectionState.done;
         final hasError = snapshot.hasError;
 
