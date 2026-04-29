@@ -174,3 +174,44 @@ const venomBloom = Ability(
   type: 'special',
   description: 'Combines poison and healing to pressure the enemy over several turns.',
 );
+const splash = Ability(
+  id: 'splash',
+  name: 'Splash',
+  type: 'useless',
+  description: 'Does nothing... but unlocks hidden potential.',
+);
+
+const sandAttack = Ability(
+  id: 'sandAttack',
+  name: 'Sand Attack',
+  type: 'control',
+  description: 'Reduces enemy accuracy (longer answer time pressure).',
+);
+
+const hurricaneStrike = Ability(
+  id: 'hurricaneStrike',
+  name: 'Hurricane Strike',
+  type: 'finisher',
+  description: 'Strong wind-based attack that boosts final damage.',
+);
+
+const adaptation = Ability(
+  id: 'adaptation',
+  name: 'Adaptation',
+  type: 'support',
+  description: 'Eevee adapts: boosts random stat each round.',
+);
+
+const psychicBurst = Ability(
+  id: 'psychicBurst',
+  name: 'Psychic Burst',
+  type: 'attack',
+  description: 'High damage psychic overload after streak.',
+);
+
+const auraGuard = Ability(
+  id: 'auraGuard',
+  name: 'Aura Guard',
+  type: 'defense',
+  description: 'Reduces incoming damage after wrong answers.',
+);

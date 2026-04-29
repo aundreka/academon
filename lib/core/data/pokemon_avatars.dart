@@ -1,0 +1,37 @@
+const List<String> pokemonAvatarPaths = [
+  'assets/pokemons/abra.png',
+  'assets/pokemons/blastoise.png',
+  'assets/pokemons/bulbasaur.png',
+  'assets/pokemons/charizard.png',
+  'assets/pokemons/charmander.png',
+  'assets/pokemons/charmeleon.png',
+  'assets/pokemons/crabrawler.png',
+  'assets/pokemons/ivysaur.png',
+  'assets/pokemons/kadabra.png',
+  'assets/pokemons/pichu.png',
+  'assets/pokemons/pikachu.png',
+  'assets/pokemons/raichu.png',
+  'assets/pokemons/squirtle.png',
+  'assets/pokemons/venusaur.png',
+  'assets/pokemons/wartortle.png',
+
+  'assets/pokemons/mewtwo.png',
+  'assets/pokemons/kirlia.png',
+  'assets/pokemons/gardevoir.png',
+  'assets/pokemons/ralts.png',
+  'assets/pokemons/gyarados.png',
+  'assets/pokemons/magikarp.png',
+  'assets/pokemons/vaporeon.png',
+  'assets/pokemons/jolteon.png',
+  'assets/pokemons/eevee.png',
+  'assets/pokemons/flareon.png',
+  'assets/pokemons/dragonite.png',
+  'assets/pokemons/dragonair.png',
+  'assets/pokemons/dratini.png',
+  'assets/pokemons/pidgey.png',
+  'assets/pokemons/pidgeotto.png',
+  'assets/pokemons/pidgeot.png',
+
+];
+
+const String defaultPokemonAvatar = 'assets/pokemons/pikachu.png';
