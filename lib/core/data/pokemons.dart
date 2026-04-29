@@ -52,7 +52,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 90,
     ability: 'Teleport: 50% chance to dodge damage and reset the question.',
-    imagePath: 'assets/pokemons/abra.png',
+    imagePath: 'assets/pokemons/abra.jpg',
     description: 'A Pokémon that sleeps 18 hours a day, using its powers even while dreaming.',
   ),
    Pokemon(
@@ -66,7 +66,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 110,
     ability: 'Kinesis: Forces the enemy to answer a difficult Identification question.',
-    imagePath: 'assets/pokemons/kadabra.png',
+    imagePath: 'assets/pokemons/kadabra.jpg',
     description: 'It emits alpha waves that cause headaches and mechanical malfunctions nearby.',
   ),
    Pokemon(
@@ -80,7 +80,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 63,
     ability: 'Iron Fist: Correct answers reduce the enemy’s answer timer by 2 seconds.',
-    imagePath: 'assets/pokemons/crabrawler.png',
+    imagePath: 'assets/pokemons/crabrawler.jpg',
     description: 'It punches everything in sight, aiming for the highest point it can find.',
   ),
 
@@ -95,7 +95,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 65,
     ability: 'Ember: Correct answers have a 20% chance to Burn, reducing enemy Attack for 2 turns.',
-    imagePath: 'assets/pokemons/charmander.png',
+    imagePath: 'assets/pokemons/charmander.jpg',
     description: 'The flame on its tail indicates its life force; it burns brightly when it is healthy.',
   ),
    Pokemon(
@@ -109,7 +109,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 80,
     ability: 'Fire Spin: Traps the enemy, forcing them to answer 3 questions in a row without healing.',
-    imagePath: 'assets/pokemons/charmeleon.png',
+    imagePath: 'assets/pokemons/charmeleon.jpg',
     description: 'It has a barbaric nature. In battle, it whips its fiery tail and claws at its enemies.',
   ),
    Pokemon(
@@ -123,7 +123,7 @@ const starterCreatures = [
     evolution: 3,
     baseSpeed: 100,
     ability: 'Blast Burn: After 3 correct answers, the next attack deals 2x damage and skips the enemy turn.',
-    imagePath: 'assets/pokemons/charizard.png',
+    imagePath: 'assets/pokemons/charizard.jpg',
     description: 'It flies around the sky in search of powerful opponents, breathing fire of unbelievable heat.',
   ),
 
@@ -138,7 +138,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 45,
     ability: 'Leech Seed: Every correct answer restores 10% of your max HP and drains it from the enemy.',
-    imagePath: 'assets/pokemons/bulbasaur.png',
+    imagePath: 'assets/pokemons/bulbasaur.jpg',
     description: 'A strange seed was planted on its back at birth. The plant sprouts and grows with this Pokémon.',
   ),
    Pokemon(
@@ -152,7 +152,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 60,
     ability: 'Sweet Scent: Simplifies the current question by removing two incorrect multiple-choice options.',
-    imagePath: 'assets/pokemons/ivysaur.png',
+    imagePath: 'assets/pokemons/ivysaur.jpg',
     description: 'When the bulb on its back grows large, it appears to lose the ability to stand on its hind legs.',
   ),
    Pokemon(
@@ -166,7 +166,7 @@ const starterCreatures = [
     evolution: 3,
     baseSpeed: 80,
     ability: 'Solar Beam: After 4 turns, the next question is automatically answered correctly with 2x damage.',
-    imagePath: 'assets/pokemons/venusaur.png',
+    imagePath: 'assets/pokemons/venusaur.jpg',
     description: 'Its plant blooms when it is absorbing solar energy. It stays on the move to seek sunlight.',
   ),
 
@@ -181,7 +181,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 43,
     ability: 'Withdraw: Reduces damage taken from the next incorrect answer by 50%.',
-    imagePath: 'assets/pokemons/squirtle.png',
+    imagePath: 'assets/pokemons/squirtle.jpg',
     description: 'After birth, its back swells and hardens into a shell. It powerfully sprays foam from its mouth.',
   ),
    Pokemon(
@@ -195,7 +195,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 58,
     ability: 'Aqua Ring: Extends the answer timer by 5 seconds for every question.',
-    imagePath: 'assets/pokemons/wartortle.png',
+    imagePath: 'assets/pokemons/wartortle.jpg',
     description: 'It is recognized as a symbol of longevity. If its shell has algae on it, that Wartortle is very old.',
   ),
    Pokemon(
@@ -209,7 +209,7 @@ const starterCreatures = [
     evolution: 3,
     baseSpeed: 78,
     ability: 'Hydro Cannon: Once per match, resets the timer and provides a "Free Hint" that highlights the correct answer.',
-    imagePath: 'assets/pokemons/blastoise.png',
+    imagePath: 'assets/pokemons/blastoise.jpg',
     description: 'It crushes its foe under its heavy body to cause fainting. In a pinch, it will withdraw inside its shell.',
   ),
 
@@ -224,7 +224,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 60,
     ability: 'Static: 30% chance to "Paralyze" the enemy on a correct answer, freezing their timer for 3 seconds.',
-    imagePath: 'assets/pokemons/pichu.png',
+    imagePath: 'assets/pokemons/pichu.jpg',
     description: 'It is not yet proficient at storing electricity. It may send out a jolt if amused or startled.',
   ),
    Pokemon(
@@ -238,7 +238,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 90,
     ability: 'Quick Attack: If you answer within the first 5 seconds, your attack ignores the enemy’s Defense.',
-    imagePath: 'assets/pokemons/pikachu.png',
+    imagePath: 'assets/pokemons/pikachu.jpg',
     description: 'Pikachu that can generate powerful electricity have cheek sacs that are extra soft and super stretchy.',
   ),
    Pokemon(
@@ -252,7 +252,7 @@ const starterCreatures = [
     evolution: 3,
     baseSpeed: 110,
     ability: 'Thunderbolt: Every 3rd correct answer forces the enemy to answer a "Flash Round" (reduced time) question.',
-    imagePath: 'assets/pokemons/raichu.png',
+    imagePath: 'assets/pokemons/raichu.jpg',
     description: 'Its long tail serves as a ground to protect itself from its own high-voltage power.',
   ),
 ];
