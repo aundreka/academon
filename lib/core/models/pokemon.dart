@@ -1,15 +1,23 @@
+import 'ability.dart';
+
 class Pokemon {
   final String id;
   final String name;
   final String type;
   final String rarity;
+
   final int baseHp;
   final int baseAttack;
   final int baseDefense;
   final int baseSpeed;
-  final int evolution;
+
+  final int evolution; // current stage (1, 2, 3)
+
   final String imagePath;
   final String description;
+
+  /// Abilities grouped by evolution stage
+  final Map<int, List<Ability>> abilitiesByEvolution;
 
   const Pokemon({
     required this.id,
@@ -23,5 +31,11 @@ class Pokemon {
     required this.evolution,
     required this.imagePath,
     required this.description,
+    this.abilitiesByEvolution = const {},
   });
+
+  /// Helper to get abilities based on current evolution
+  List<Ability> getAbilities() {
+    return abilitiesByEvolution[evolution] ?? [];
+  }
 }

@@ -6,7 +6,7 @@ class AppColors {
   static const accent = Color(0xFF00E5FF);
 
   static const textPrimary = Colors.white;
-  static const textSecondary = Colors.grey;
+  static const textSecondary = Color.fromARGB(255, 231, 231, 231);
 
   static const card = Color(0xFF121826);
 }
