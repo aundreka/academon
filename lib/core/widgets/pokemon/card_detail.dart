@@ -182,7 +182,10 @@ class _PlayableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isLegendary = pokemon.rarity.toLowerCase() == 'legendary';
+    final isUltraRare = pokemon.rarity.toLowerCase() == 'ultra rare';
+
+    final cardContent = Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
         gradient: LinearGradient(
@@ -193,153 +196,268 @@ class _PlayableCard extends StatelessWidget {
             Colors.white,
           ],
         ),
+        boxShadow: isLegendary
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF7C4DFF).withOpacity(0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ]
+            : null,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              pokemon.name,
-              style: AppTextStyles.title.copyWith(
-                fontSize: 22,
-                color: palette.shadow,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: [
-                _InfoChip(value: pokemon.type, color: palette.primary),
-                _InfoChip(value: pokemon.rarity, color: palette.secondary),
-                _InfoChip(value: 'Stage ${pokemon.evolution}', color: palette.shadow),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: AspectRatio(
-                aspectRatio: 1.35,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            palette.primary,
-                            palette.secondary,
-                          ],
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: -20,
-                      right: -12,
-                      child: Container(
-                        width: 128,
-                        height: 128,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.16),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: _buildPokemonImage(normalizedAssetPath, pokemon.name),
-                    ),
-                    Positioned(
-                      top: AppSpacing.md,
-                      left: AppSpacing.md,
-                      child: _OverlayStatsGroup(
-                        alignment: CrossAxisAlignment.start,
-                        tiles: [
-                          _OverlayStat(label: 'HP', value: '${pokemon.baseHp}'),
-                          _OverlayStat(label: 'ATK', value: '${pokemon.baseAttack}'),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      top: AppSpacing.md,
-                      right: AppSpacing.md,
-                      child: _OverlayStatsGroup(
-                        alignment: CrossAxisAlignment.end,
-                        tiles: [
-                          _OverlayStat(label: 'DEF', value: '${pokemon.baseDefense}'),
-                          _OverlayStat(label: 'SPD', value: '${pokemon.baseSpeed}'),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withOpacity(0.0),
-                              Colors.black.withOpacity(0.68),
+      child: Stack(
+        children: [
+          if (isUltraRare || isLegendary)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isLegendary
+                          ? [
+                              Colors.white.withOpacity(0.22),
+                              const Color(0xFFFF80AB).withOpacity(0.12),
+                              const Color(0xFF80D8FF).withOpacity(0.10),
+                              Colors.transparent,
+                            ]
+                          : [
+                              Colors.white.withOpacity(0.22),
+                              const Color(0xFFFFE082).withOpacity(0.16),
+                              Colors.transparent,
                             ],
-                          ),
-                        ),
-                        child: Text(
-                          pokemon.description,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.body.copyWith(
-                            color: AppColors.textPrimary,
-                            height: 1.35,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
+                      stops: isLegendary
+                          ? const [0.0, 0.22, 0.48, 0.82]
+                          : const [0.0, 0.32, 0.82],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Abilities',
-              style: AppTextStyles.button.copyWith(
-                fontSize: 16,
-                color: palette.shadow,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            if (pokemon.abilities.isEmpty)
-              Text(
-                'No abilities listed.',
-                style: AppTextStyles.body.copyWith(color: palette.shadow),
-              )
-            else
-              Column(
-                children: pokemon.abilities
-                    .map(
-                      (ability) => Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                        child: _AbilityTile(
-                          name: ability.name,
-                          type: ability.type,
-                          description: ability.description,
-                          palette: palette,
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  pokemon.name,
+                  style: AppTextStyles.title.copyWith(
+                    fontSize: 22,
+                    color: palette.shadow,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    _InfoChip(value: pokemon.type, color: palette.primary),
+                    _InfoChip(value: pokemon.rarity, color: palette.secondary),
+                    _InfoChip(value: 'Stage ${pokemon.evolution}', color: palette.shadow),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: AspectRatio(
+                    aspectRatio: 1.35,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                palette.primary,
+                                palette.secondary,
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    )
-                    .toList(),
-              ),
-          ],
-        ),
+                        if (isUltraRare || isLegendary)
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white.withOpacity(0.20),
+                                    Colors.transparent,
+                                    (isLegendary
+                                            ? const Color(0xFF80D8FF)
+                                            : const Color(0xFFFFF59D))
+                                        .withOpacity(0.10),
+                                  ],
+                                  stops: const [0.0, 0.38, 1.0],
+                                ),
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          top: -20,
+                          right: -12,
+                          child: Container(
+                            width: 128,
+                            height: 128,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(0.16),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: _buildPokemonImage(normalizedAssetPath, pokemon.name),
+                        ),
+                        Positioned(
+                          top: AppSpacing.md,
+                          left: AppSpacing.md,
+                          child: _OverlayStatsGroup(
+                            alignment: CrossAxisAlignment.start,
+                            tiles: [
+                              _OverlayStat(label: 'HP', value: '${pokemon.baseHp}'),
+                              _OverlayStat(label: 'ATK', value: '${pokemon.baseAttack}'),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          top: AppSpacing.md,
+                          right: AppSpacing.md,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _RarityBadge(
+                                label: _raritySymbol(pokemon.rarity),
+                                rarity: pokemon.rarity,
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              _OverlayStatsGroup(
+                                alignment: CrossAxisAlignment.end,
+                                tiles: [
+                                  _OverlayStat(
+                                    label: 'DEF',
+                                    value: '${pokemon.baseDefense}',
+                                  ),
+                                  _OverlayStat(
+                                    label: 'SPD',
+                                    value: '${pokemon.baseSpeed}',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.0),
+                                  Colors.black.withOpacity(0.68),
+                                ],
+                              ),
+                            ),
+                            child: Text(
+                              pokemon.description,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.body.copyWith(
+                                color: AppColors.textPrimary,
+                                height: 1.35,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Abilities',
+                  style: AppTextStyles.button.copyWith(
+                    fontSize: 16,
+                    color: palette.shadow,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (pokemon.abilities.isEmpty)
+                  Text(
+                    'No abilities listed.',
+                    style: AppTextStyles.body.copyWith(color: palette.shadow),
+                  )
+                else
+                  Column(
+                    children: pokemon.abilities
+                        .map(
+                          (ability) => Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            child: _AbilityTile(
+                              name: ability.name,
+                              type: ability.type,
+                              description: ability.description,
+                              palette: palette,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
+
+    if (isLegendary) {
+      return Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          gradient: const SweepGradient(
+            colors: [
+              Color(0xFFFF6B6B),
+              Color(0xFFFFD93D),
+              Color(0xFF6BFF95),
+              Color(0xFF59D8FF),
+              Color(0xFF7C4DFF),
+              Color(0xFFFF6B6B),
+            ],
+          ),
+        ),
+        child: cardContent,
+      );
+    }
+
+    return cardContent;
+  }
+
+  String _raritySymbol(String rarity) {
+    switch (rarity.toLowerCase()) {
+      case 'ultra rare':
+        return 'UR';
+      case 'legendary':
+        return 'S';
+      case 'rare':
+        return 'R';
+      case 'uncommon':
+        return 'U';
+      default:
+        return 'C';
+    }
   }
 }
 
@@ -507,6 +625,78 @@ class _AbilityTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RarityBadge extends StatelessWidget {
+  final String label;
+  final String rarity;
+
+  const _RarityBadge({
+    required this.label,
+    required this.rarity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lower = rarity.toLowerCase();
+    final isLegendary = lower == 'legendary';
+    final isUltraRare = lower == 'ultra rare';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        gradient: isLegendary
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFF6B6B),
+                  Color(0xFFFFD93D),
+                  Color(0xFF59D8FF),
+                  Color(0xFF7C4DFF),
+                ],
+              )
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isUltraRare
+                    ? const [
+                        Color(0xFFFFF0A8),
+                        Color(0xFFFFC94A),
+                      ]
+                    : const [
+                        Color(0x99000000),
+                        Color(0x66000000),
+                      ],
+              ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: (isLegendary
+                    ? const Color(0xFF7C4DFF)
+                    : isUltraRare
+                        ? const Color(0xFFFFC94A)
+                        : Colors.black)
+                .withOpacity(0.22),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.button.copyWith(
+          fontSize: 12,
+          color: isLegendary || isUltraRare
+              ? const Color(0xFF111827)
+              : AppColors.textPrimary,
+        ),
       ),
     );
   }
