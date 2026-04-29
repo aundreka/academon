@@ -223,4 +223,5 @@ Pokemon(
     abilities: [staticAbility, quickAttack, thunderbolt],
     imagePath: 'image/pokemons/raichu.jpg',
     description: 'Its long tail serves as a ground to protect itself from its own high-voltage power.',
-),
+)
+];
