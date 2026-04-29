@@ -6,7 +6,7 @@ import '../core/theme/spacing.dart';
 import '../core/theme/textstyles.dart';
 import '../core/widgets/ui/topnav.dart';
 import 'arena/pve_menu.dart';
-import 'arena/pvp_menu.dart';
+import 'arena/pvp_quickmatch.dart';
 
 class ArenaScreen extends StatefulWidget {
   const ArenaScreen({super.key});
