@@ -1,0 +1,609 @@
+import 'dart:math';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/item.dart';
+import '../models/pokemon.dart';
+import 'pokemons.dart';
+import 'shop_catalog.dart';
+
+enum PurchaseCurrency {
+  coins,
+  diamonds,
+}
+
+class PurchaseResult {
+  final bool success;
+  final String message;
+
+  const PurchaseResult({
+    required this.success,
+    required this.message,
+  });
+}
+
+class InventoryActionResult {
+  final bool success;
+  final String message;
+
+  const InventoryActionResult({
+    required this.success,
+    required this.message,
+  });
+}
+
+class OwnedInventoryItem {
+  final InventoryItem item;
+  final int quantity;
+
+  const OwnedInventoryItem({
+    required this.item,
+    required this.quantity,
+  });
+
+  int get sellPrice => item.coinValue <= 0 ? 0 : max(1, item.coinValue ~/ 2);
+  bool get canSell => quantity > 0 && sellPrice > 0;
+  bool get canUse =>
+      quantity > 0 &&
+      item.isConsumable &&
+      const {
+        InventoryItemType.energyRefill,
+        InventoryItemType.xpBoostChip,
+        InventoryItemType.evolutionCore,
+      }.contains(item.itemType);
+}
+
+class HatchResult {
+  final InventoryItem item;
+  final Pokemon pokemon;
+
+  const HatchResult({
+    required this.item,
+    required this.pokemon,
+  });
+}
+
+class HatcheryEggEntry {
+  final String eggInstanceId;
+  final InventoryItem item;
+  final String label;
+  final double progress;
+  final bool isReadyToHatch;
+  final DateTime createdAt;
+  final int battlesCompleted;
+  final int hatchBattleRequirement;
+  final Duration? hatchDuration;
+
+  const HatcheryEggEntry({
+    required this.eggInstanceId,
+    required this.item,
+    required this.label,
+    required this.progress,
+    required this.isReadyToHatch,
+    required this.createdAt,
+    required this.battlesCompleted,
+    required this.hatchBattleRequirement,
+    required this.hatchDuration,
+  });
+}
+
+class ItemInventoryService {
+  final SupabaseClient _supabase;
+
+  const ItemInventoryService(this._supabase);
+
+  Future<List<OwnedInventoryItem>> fetchOwnedItems() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      return const [];
+    }
+
+    final rows = await _supabase
+        .from('user_inventory')
+        .select(
+          'quantity, inventory_items!inner ('
+          'id, name, type, image_path, description, coin_value, diamond_value, '
+          'category, item_type, '
+          'is_premium, is_consumable, evolution_stages_granted, xp_multiplier, '
+          'xp_boost_battle_count, egg_subject_id, egg_rarity, '
+          'egg_hatch_battle_requirement, '
+          'egg_hatch_duration_seconds, energy_restore_amount, '
+          'energy_restores_to_full, energy_pve_only, battle_ticket_mode, '
+          'battle_ticket_required_per_entry'
+          ')',
+        )
+        .eq('user_id', user.id)
+        .gt('quantity', 0);
+
+    final items = rows
+        .whereType<Map<String, dynamic>>()
+        .map<OwnedInventoryItem?>((row) {
+          final rawItem = row['inventory_items'];
+          final itemMap = rawItem is List && rawItem.isNotEmpty
+              ? rawItem.first
+              : rawItem;
+          if (itemMap is! Map<String, dynamic>) {
+            return null;
+          }
+
+          return OwnedInventoryItem(
+            quantity: (row['quantity'] as int?) ?? 0,
+            item: _inventoryItemFromRow(
+              itemMap,
+              quantity: (row['quantity'] as int?) ?? 0,
+            ),
+          );
+        })
+        .whereType<OwnedInventoryItem>()
+        .toList();
+
+    items.sort((a, b) => a.item.name.compareTo(b.item.name));
+    return items;
+  }
+
+  Future<List<HatcheryEggEntry>> fetchActiveEggs() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      return const [];
+    }
+
+    final rows = await _supabase
+        .from('user_egg_instances')
+        .select(
+          'id, inventory_item_id, subject_id, hatch_battle_requirement, '
+          'battles_completed, hatch_duration_seconds, egg_rarity, created_at',
+        )
+        .eq('user_id', user.id)
+        .filter('hatched_at', 'is', null)
+        .order('created_at')
+        .limit(3);
+
+    final now = DateTime.now().toUtc();
+    return rows.whereType<Map<String, dynamic>>().map<HatcheryEggEntry>((map) {
+      final itemId = (map['inventory_item_id'] as String?) ?? '';
+      final baseItem = shopCatalogById[itemId];
+      final rarity = eggRarityFromString(map['egg_rarity'] as String?);
+      final hatchDurationSeconds = map['hatch_duration_seconds'] as int?;
+      final createdAt = DateTime.tryParse(map['created_at'] as String? ?? '')?.toUtc() ?? now;
+      final eggProgress = EggProgress(
+        subjectId: map['subject_id'] as String?,
+        hatchBattleRequirement: (map['hatch_battle_requirement'] as int?) ?? 0,
+        hatchDuration: hatchDurationSeconds == null
+            ? rarity.hatchDuration
+            : Duration(seconds: hatchDurationSeconds),
+      );
+      final item = baseItem ??
+          InventoryItem.egg(
+            id: itemId,
+            name: '${rarity.label} Egg',
+            rarity: rarity,
+            eggProgress: eggProgress,
+          );
+
+      final battlesCompleted = (map['battles_completed'] as int?) ?? 0;
+      final battleRequirement = eggProgress.hatchBattleRequirement;
+      final battleProgress = battleRequirement <= 0
+          ? 0.0
+          : battlesCompleted / battleRequirement;
+      final duration = eggProgress.hatchDuration;
+      final elapsedSeconds = now.difference(createdAt).inSeconds;
+      final timeProgress = duration == null || duration.inSeconds <= 0
+          ? 0.0
+          : elapsedSeconds / duration.inSeconds;
+      final progress = max(battleProgress, timeProgress).clamp(0.0, 1.0);
+      final isReady = progress >= 1.0;
+
+      return HatcheryEggEntry(
+        eggInstanceId: map['id'] as String? ?? '',
+        item: InventoryItem.egg(
+          id: item.id,
+          name: item.name,
+          imagePath: item.imagePath,
+          description: item.description,
+          coinValue: item.coinValue,
+          diamondValue: item.diamondValue,
+          rarity: rarity,
+          eggProgress: eggProgress,
+        ),
+        label: _buildEggLabel(
+          isReady: isReady,
+          battlesCompleted: battlesCompleted,
+          battleRequirement: battleRequirement,
+          duration: duration,
+          createdAt: createdAt,
+          now: now,
+        ),
+        progress: progress,
+        isReadyToHatch: isReady,
+        createdAt: createdAt,
+        battlesCompleted: battlesCompleted,
+        hatchBattleRequirement: battleRequirement,
+        hatchDuration: duration,
+      );
+    }).toList();
+  }
+
+  Future<PurchaseResult> purchaseItem({
+    required InventoryItem item,
+    required PurchaseCurrency currency,
+    int? coinPrice,
+    int? diamondPrice,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      return const PurchaseResult(
+        success: false,
+        message: 'Please log in before purchasing items.',
+      );
+    }
+
+    final stats = await _supabase
+        .from('user_stats')
+        .select('coins, diamonds')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    final coins = (stats?['coins'] as int?) ?? 0;
+    final diamonds = (stats?['diamonds'] as int?) ?? 0;
+    final resolvedCoinPrice = coinPrice ?? item.coinValue;
+    final resolvedDiamondPrice = diamondPrice ?? item.diamondValue;
+    final cost = currency == PurchaseCurrency.coins
+        ? resolvedCoinPrice
+        : resolvedDiamondPrice;
+
+    if (cost <= 0) {
+      return const PurchaseResult(
+        success: false,
+        message: 'This item cannot be purchased with that currency.',
+      );
+    }
+
+    if (currency == PurchaseCurrency.coins && coins < cost) {
+      return const PurchaseResult(
+        success: false,
+        message: 'Not enough coins for this purchase.',
+      );
+    }
+    if (currency == PurchaseCurrency.diamonds && diamonds < cost) {
+      return const PurchaseResult(
+        success: false,
+        message: 'Not enough diamonds for this purchase.',
+      );
+    }
+
+    if (item.itemType == InventoryItemType.egg) {
+      final activeEggRows = await _supabase
+          .from('user_egg_instances')
+          .select('id')
+          .eq('user_id', user.id)
+          .filter('hatched_at', 'is', null);
+      if (activeEggRows.length >= 3) {
+        return const PurchaseResult(
+          success: false,
+          message: 'Only 3 eggs can hatch at the same time.',
+        );
+      }
+
+      await _supabase.from('user_egg_instances').insert({
+        'user_id': user.id,
+        'inventory_item_id': item.id,
+        'subject_id': item.eggProgress?.subjectId,
+        'hatch_battle_requirement': item.eggProgress?.hatchBattleRequirement ?? 0,
+        'battles_completed': 0,
+        'hatch_duration_seconds': item.eggProgress?.hatchDuration?.inSeconds,
+        'egg_rarity': (item.eggRarity ?? EggRarity.common).storageValue,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } else {
+      final existing = await _supabase
+          .from('user_inventory')
+          .select('quantity')
+          .eq('user_id', user.id)
+          .eq('item_id', item.id)
+          .maybeSingle();
+      final nextQuantity = ((existing?['quantity'] as int?) ?? 0) + 1;
+
+      await _supabase.from('user_inventory').upsert({
+        'user_id': user.id,
+        'item_id': item.id,
+        'quantity': nextQuantity,
+      }, onConflict: 'user_id,item_id');
+    }
+
+    await _supabase.from('user_stats').update({
+      'coins': currency == PurchaseCurrency.coins ? coins - cost : coins,
+      'diamonds': currency == PurchaseCurrency.diamonds
+          ? diamonds - cost
+          : diamonds,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('user_id', user.id);
+
+    return PurchaseResult(
+      success: true,
+      message: item.itemType == InventoryItemType.egg
+          ? '${item.name} is now incubating in your hatchery.'
+          : '${item.name} added to your inventory.',
+    );
+  }
+
+  Future<HatchResult> hatchEgg(HatcheryEggEntry entry) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw Exception('Please log in before hatching eggs.');
+    }
+
+    final pokemon = _pokemonForEgg(entry.item);
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    await _supabase.from('owned_pokemons').insert({
+      'user_id': user.id,
+      'pokemon_id': pokemon.id,
+      'level': 1,
+      'xp': 0,
+      'current_hp': pokemon.baseHp,
+      'updated_at': now,
+    });
+
+    await _supabase.from('user_egg_instances').update({
+      'hatched_at': now,
+      'updated_at': now,
+    }).eq('id', entry.eggInstanceId);
+
+    return HatchResult(
+      item: entry.item,
+      pokemon: pokemon,
+    );
+  }
+
+  Future<InventoryActionResult> useItem(OwnedInventoryItem ownedItem) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      return const InventoryActionResult(
+        success: false,
+        message: 'Please log in before using items.',
+      );
+    }
+
+    if (ownedItem.quantity <= 0) {
+      return const InventoryActionResult(
+        success: false,
+        message: 'You do not have any of this item left.',
+      );
+    }
+
+    final item = ownedItem.item;
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    switch (item.itemType) {
+      case InventoryItemType.energyRefill:
+        final stats = await _supabase
+            .from('user_stats')
+            .select('current_energy, max_energy')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        final currentEnergy = (stats?['current_energy'] as int?) ?? 0;
+        final maxEnergy = (stats?['max_energy'] as int?) ?? 0;
+        final effect = item.energyRefillEffect;
+        final nextEnergy = effect?.restoresToFull ?? false
+            ? maxEnergy
+            : min(maxEnergy, currentEnergy + (effect?.restoreAmount ?? 0));
+
+        if (nextEnergy == currentEnergy) {
+          return const InventoryActionResult(
+            success: false,
+            message: 'Your energy is already full.',
+          );
+        }
+
+        await _supabase.from('user_stats').update({
+          'current_energy': nextEnergy,
+          'updated_at': now,
+        }).eq('user_id', user.id);
+        await _decrementInventoryItem(user.id, item.id, ownedItem.quantity);
+
+        return InventoryActionResult(
+          success: true,
+          message: '${item.name} used. Energy restored to $nextEnergy.',
+        );
+      case InventoryItemType.xpBoostChip:
+        await _supabase.from('user_item_effects').insert({
+          'user_id': user.id,
+          'source_item_id': item.id,
+          'effect_type': 'xp_boost',
+          'multiplier': item.xpBoostEffect?.multiplier ?? 1.0,
+          'remaining_battle_count': item.xpBoostEffect?.battleCount ?? 0,
+          'started_at': now,
+          'created_at': now,
+          'updated_at': now,
+        });
+        await _decrementInventoryItem(user.id, item.id, ownedItem.quantity);
+
+        return InventoryActionResult(
+          success: true,
+          message:
+              '${item.name} activated for the next ${item.xpBoostEffect?.battleCount ?? 0} battles.',
+        );
+      case InventoryItemType.evolutionCore:
+        return const InventoryActionResult(
+          success: false,
+          message:
+              'Evolution Cores need a Pokemon target. Add the target flow from the Pokemon screen next.',
+        );
+      case InventoryItemType.generic:
+      case InventoryItemType.egg:
+      case InventoryItemType.battleTicket:
+        break;
+    }
+
+    return InventoryActionResult(
+      success: false,
+      message: '${item.name} cannot be used directly from the inventory.',
+    );
+  }
+
+  Future<InventoryActionResult> sellItem(OwnedInventoryItem ownedItem) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      return const InventoryActionResult(
+        success: false,
+        message: 'Please log in before selling items.',
+      );
+    }
+
+    if (!ownedItem.canSell) {
+      return const InventoryActionResult(
+        success: false,
+        message: 'This item cannot be sold.',
+      );
+    }
+
+    final stats = await _supabase
+        .from('user_stats')
+        .select('coins')
+        .eq('user_id', user.id)
+        .maybeSingle();
+    final coins = (stats?['coins'] as int?) ?? 0;
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    await _decrementInventoryItem(user.id, ownedItem.item.id, ownedItem.quantity);
+    await _supabase.from('user_stats').update({
+      'coins': coins + ownedItem.sellPrice,
+      'updated_at': now,
+    }).eq('user_id', user.id);
+
+    return InventoryActionResult(
+      success: true,
+      message: '${ownedItem.item.name} sold for ${ownedItem.sellPrice} coins.',
+    );
+  }
+
+  Pokemon _pokemonForEgg(InventoryItem item) {
+    final rarity = item.eggRarity ?? EggRarity.common;
+    final stageOne = starterCreatures.where((pokemon) => pokemon.evolution == 1);
+
+    switch (rarity) {
+      case EggRarity.common:
+        return stageOne.firstWhere((pokemon) => pokemon.id == 'bulbasaur1');
+      case EggRarity.uncommon:
+        return stageOne.firstWhere((pokemon) => pokemon.id == 'abra1');
+      case EggRarity.rare:
+        return stageOne.firstWhere((pokemon) => pokemon.id == 'charmander1');
+      case EggRarity.ultraRare:
+        return stageOne.firstWhere((pokemon) => pokemon.id == 'oddish1');
+      case EggRarity.legendary:
+        return stageOne.firstWhere((pokemon) => pokemon.id == 'gastly1');
+    }
+  }
+
+  String _buildEggLabel({
+    required bool isReady,
+    required int battlesCompleted,
+    required int battleRequirement,
+    required Duration? duration,
+    required DateTime createdAt,
+    required DateTime now,
+  }) {
+    if (isReady) {
+      return 'Ready to hatch';
+    }
+
+    if (battleRequirement > 0) {
+      return '$battlesCompleted / $battleRequirement battles complete';
+    }
+
+    if (duration == null) {
+      return 'Still warming up';
+    }
+
+    final elapsed = now.difference(createdAt);
+    final remaining = duration - elapsed;
+    final clamped = remaining.isNegative ? Duration.zero : remaining;
+    final hours = clamped.inHours;
+    final minutes = clamped.inMinutes.remainder(60);
+    return '${hours}h ${minutes}m remaining';
+  }
+
+  Future<void> _decrementInventoryItem(
+    String userId,
+    String itemId,
+    int currentQuantity,
+  ) async {
+    final nextQuantity = currentQuantity - 1;
+    if (nextQuantity <= 0) {
+      await _supabase
+          .from('user_inventory')
+          .delete()
+          .eq('user_id', userId)
+          .eq('item_id', itemId);
+      return;
+    }
+
+    await _supabase.from('user_inventory').update({
+      'quantity': nextQuantity,
+    }).eq('user_id', userId).eq('item_id', itemId);
+  }
+
+  InventoryItem _inventoryItemFromRow(
+    Map<String, dynamic> row, {
+    required int quantity,
+  }) {
+    final itemType = inventoryItemTypeFromString(row['item_type'] as String?);
+    final category = itemCategoryFromString(row['category'] as String?);
+    final eggRarity = eggRarityFromString(row['egg_rarity'] as String?);
+    final hatchDurationSeconds = row['egg_hatch_duration_seconds'] as int?;
+    final hatchBattleRequirement =
+        (row['egg_hatch_battle_requirement'] as int?) ?? 0;
+
+    return InventoryItem(
+      id: (row['id'] as String?) ?? '',
+      name: (row['name'] as String?) ?? 'Unknown Item',
+      type: (row['type'] as String?) ?? 'generic',
+      quantity: quantity,
+      imagePath: (row['image_path'] as String?) ?? '',
+      description: (row['description'] as String?) ?? '',
+      coinValue: (row['coin_value'] as int?) ?? 0,
+      diamondValue: (row['diamond_value'] as int?) ?? 0,
+      category: category,
+      itemType: itemType,
+      isPremium: (row['is_premium'] as bool?) ?? false,
+      isConsumable: (row['is_consumable'] as bool?) ?? true,
+      evolutionStagesGranted:
+          (row['evolution_stages_granted'] as int?) ?? 0,
+      xpBoostEffect: itemType == InventoryItemType.xpBoostChip
+          ? XpBoostEffect(
+              multiplier:
+                  ((row['xp_multiplier'] as num?) ?? 1).toDouble(),
+              battleCount: (row['xp_boost_battle_count'] as int?) ?? 0,
+            )
+          : null,
+      eggProgress: itemType == InventoryItemType.egg
+          ? EggProgress(
+              subjectId: row['egg_subject_id'] as String?,
+              hatchBattleRequirement: hatchBattleRequirement,
+              hatchDuration: hatchDurationSeconds == null
+                  ? null
+                  : Duration(seconds: hatchDurationSeconds),
+            )
+          : null,
+      eggRarity: itemType == InventoryItemType.egg ? eggRarity : null,
+      energyRefillEffect: itemType == InventoryItemType.energyRefill
+          ? EnergyRefillEffect(
+              restoreAmount: (row['energy_restore_amount'] as int?) ?? 0,
+              restoresToFull:
+                  (row['energy_restores_to_full'] as bool?) ?? false,
+              pveOnly: (row['energy_pve_only'] as bool?) ?? true,
+            )
+          : null,
+      battleTicketAccess: itemType == InventoryItemType.battleTicket
+          ? BattleTicketAccess(
+              mode: battleTicketModeFromString(
+                row['battle_ticket_mode'] as String?,
+              ),
+              requiredPerEntry:
+                  (row['battle_ticket_required_per_entry'] as int?) ?? 1,
+            )
+          : null,
+    );
+  }
+}

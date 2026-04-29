@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/item.dart';
@@ -22,9 +21,8 @@ class EggCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rarity = item.eggRarity ?? EggRarity.common;
-    final palette = _paletteForRarity(rarity);
-    final resolvedHeight = height ?? (width * 1.36);
+    final resolvedHeight = height ?? (width * 1.32);
+    final colors = _colorsForRarity(item.eggRarity ?? EggRarity.common);
 
     return SizedBox(
       width: width,
@@ -33,75 +31,58 @@ class EggCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  palette.shadow.withOpacity(0.92),
-                  palette.primary.withOpacity(0.82),
+          borderRadius: BorderRadius.circular(20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: colors,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.first.withOpacity(0.28),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
                 ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: palette.shadow.withOpacity(0.28),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
               child: Stack(
+                clipBehavior: Clip.hardEdge,
                 children: [
                   Positioned(
-                    top: -18,
+                    top: -16,
                     right: -10,
                     child: Container(
-                      width: width * 0.52,
-                      height: width * 0.52,
+                      width: width * 0.48,
+                      height: width * 0.48,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white.withOpacity(0.14),
                       ),
                     ),
                   ),
-                  Column(
-                    children: [
-                      Expanded(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.md),
-                            child: _buildEggImage(item.imagePath, item.name),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Center(
+                            child: _EggImage(path: item.imagePath),
                           ),
                         ),
-                      ),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.22),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          _labelForRarity(rarity),
-                          textAlign: TextAlign.center,
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          item.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.body.copyWith(
-                            color: AppColors.textPrimary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                          ),
+                          style: AppTextStyles.button.copyWith(fontSize: 13),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -112,98 +93,52 @@ class EggCard extends StatelessWidget {
     );
   }
 
-  Widget _buildEggImage(String path, String name) {
-    final fallback = Icon(
-      Icons.egg_rounded,
-      size: 54,
-      color: AppColors.textPrimary.withOpacity(0.94),
-    );
-
-    if (path.isEmpty) {
-      return fallback;
-    }
-
-    final normalizedPath = _normalizedAssetPath(path);
-
-    if (kIsWeb && (normalizedPath.startsWith('http://') || normalizedPath.startsWith('https://'))) {
-      return Image.network(
-        normalizedPath,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => fallback,
-      );
-    }
-
-    return Image.asset(
-      normalizedPath,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) => fallback,
-    );
-  }
-
-  String _normalizedAssetPath(String path) {
-    if (path.startsWith('assets/')) {
-      return path;
-    }
-
-    if (path.startsWith('items/')) {
-      return 'assets/$path';
-    }
-
-    return path;
-  }
-
-  _EggPalette _paletteForRarity(EggRarity rarity) {
+  List<Color> _colorsForRarity(EggRarity rarity) {
     switch (rarity) {
       case EggRarity.common:
-        return const _EggPalette(
-          primary: Color(0xFFFFC06E),
-          shadow: Color(0xFF7C4110),
-        );
+        return const [Color(0xFF8A531F), Color(0xFFD9853A)];
       case EggRarity.uncommon:
-        return const _EggPalette(
-          primary: Color(0xFF8CD96B),
-          shadow: Color(0xFF2E6B22),
-        );
+        return const [Color(0xFF3B7F45), Color(0xFF82D46F)];
       case EggRarity.rare:
-        return const _EggPalette(
-          primary: Color(0xFF69C7FF),
-          shadow: Color(0xFF1E5691),
-        );
+        return const [Color(0xFF275FA7), Color(0xFF65B7FF)];
       case EggRarity.ultraRare:
-        return const _EggPalette(
-          primary: Color(0xFFC186FF),
-          shadow: Color(0xFF5A2F9A),
-        );
+        return const [Color(0xFF5B49A8), Color(0xFFA68BFF)];
       case EggRarity.legendary:
-        return const _EggPalette(
-          primary: Color(0xFFFF7FA2),
-          shadow: Color(0xFF8A2448),
-        );
-    }
-  }
-
-  String _labelForRarity(EggRarity rarity) {
-    switch (rarity) {
-      case EggRarity.common:
-        return 'Common Egg';
-      case EggRarity.uncommon:
-        return 'Uncommon Egg';
-      case EggRarity.rare:
-        return 'Rare Egg';
-      case EggRarity.ultraRare:
-        return 'Ultra Rare Egg';
-      case EggRarity.legendary:
-        return 'Legendary Egg';
+        return const [Color(0xFFE56A4A), Color(0xFFFFD166)];
     }
   }
 }
 
-class _EggPalette {
-  final Color primary;
-  final Color shadow;
+class _EggImage extends StatelessWidget {
+  final String path;
 
-  const _EggPalette({
-    required this.primary,
-    required this.shadow,
+  const _EggImage({
+    required this.path,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.isNotEmpty) {
+      return Image.asset(
+        path,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => const _EggFallback(),
+      );
+    }
+
+    return const _EggFallback();
+  }
+}
+
+class _EggFallback extends StatelessWidget {
+  const _EggFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Icon(
+      Icons.egg_alt_rounded,
+      size: 72,
+      color: AppColors.textPrimary,
+    );
+  }
 }

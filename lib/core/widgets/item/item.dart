@@ -61,39 +61,43 @@ class ItemCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                palette.primary,
-                                palette.secondary,
-                              ],
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  palette.primary,
+                                  palette.secondary,
+                                ],
+                              ),
                             ),
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                top: -18,
-                                right: -12,
-                                child: Container(
-                                  width: width * 0.52,
-                                  height: width * 0.52,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.white.withOpacity(0.12),
+                            child: Stack(
+                              clipBehavior: Clip.hardEdge,
+                              children: [
+                                Positioned(
+                                  top: -18,
+                                  right: -12,
+                                  child: Container(
+                                    width: width * 0.52,
+                                    height: width * 0.52,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white.withOpacity(0.12),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(AppSpacing.md),
-                                  child: _buildItemImage(item.imagePath, item.name),
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(AppSpacing.md),
+                                    child: _buildItemImage(item.imagePath, item.name),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

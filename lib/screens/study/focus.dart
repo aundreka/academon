@@ -4,8 +4,6 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
 import '../../core/widgets/ui/topnav.dart';
-import '../../app_shell.dart';
-
 class FocusScreen extends StatelessWidget {
   const FocusScreen({super.key});
 

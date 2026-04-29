@@ -9,6 +9,28 @@ enum ItemCategory {
   ticket,
 }
 
+ItemCategory itemCategoryFromString(String? value) {
+  switch ((value ?? '').trim().toLowerCase()) {
+    case 'progression':
+      return ItemCategory.progression;
+    case 'access':
+      return ItemCategory.access;
+    case 'special':
+      return ItemCategory.special;
+    case 'support':
+      return ItemCategory.support;
+    case 'potion':
+      return ItemCategory.potion;
+    case 'boost':
+      return ItemCategory.boost;
+    case 'ticket':
+      return ItemCategory.ticket;
+    case 'consumable':
+    default:
+      return ItemCategory.consumable;
+  }
+}
+
 enum InventoryItemType {
   generic,
   evolutionCore,
@@ -16,6 +38,24 @@ enum InventoryItemType {
   egg,
   energyRefill,
   battleTicket,
+}
+
+InventoryItemType inventoryItemTypeFromString(String? value) {
+  switch ((value ?? '').trim()) {
+    case 'evolutionCore':
+      return InventoryItemType.evolutionCore;
+    case 'xpBoostChip':
+      return InventoryItemType.xpBoostChip;
+    case 'egg':
+      return InventoryItemType.egg;
+    case 'energyRefill':
+      return InventoryItemType.energyRefill;
+    case 'battleTicket':
+      return InventoryItemType.battleTicket;
+    case 'generic':
+    default:
+      return InventoryItemType.generic;
+  }
 }
 
 enum EggRarity {
@@ -30,10 +70,73 @@ enum EggRarity {
   final Duration hatchDuration;
 }
 
+EggRarity eggRarityFromString(String? value) {
+  switch ((value ?? '').trim().toLowerCase()) {
+    case 'common':
+      return EggRarity.common;
+    case 'uncommon':
+      return EggRarity.uncommon;
+    case 'rare':
+      return EggRarity.rare;
+    case 'ultrarare':
+    case 'ultra_rare':
+    case 'ultra rare':
+      return EggRarity.ultraRare;
+    case 'legendary':
+      return EggRarity.legendary;
+    default:
+      return EggRarity.common;
+  }
+}
+
+extension EggRarityX on EggRarity {
+  String get storageValue {
+    switch (this) {
+      case EggRarity.common:
+        return 'common';
+      case EggRarity.uncommon:
+        return 'uncommon';
+      case EggRarity.rare:
+        return 'rare';
+      case EggRarity.ultraRare:
+        return 'ultra_rare';
+      case EggRarity.legendary:
+        return 'legendary';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case EggRarity.common:
+        return 'Common';
+      case EggRarity.uncommon:
+        return 'Uncommon';
+      case EggRarity.rare:
+        return 'Rare';
+      case EggRarity.ultraRare:
+        return 'Ultra Rare';
+      case EggRarity.legendary:
+        return 'Legendary';
+    }
+  }
+}
+
 enum BattleTicketMode {
   pvp,
   ranked,
   both,
+}
+
+BattleTicketMode battleTicketModeFromString(String? value) {
+  switch ((value ?? '').trim().toLowerCase()) {
+    case 'pvp':
+      return BattleTicketMode.pvp;
+    case 'ranked':
+      return BattleTicketMode.ranked;
+    case 'both':
+    default:
+      return BattleTicketMode.both;
+  }
 }
 
 class XpBoostEffect {
@@ -277,4 +380,89 @@ class InventoryItem {
         eggProgress = null,
         eggRarity = null,
         energyRefillEffect = null;
+
+  InventoryItem copyWith({
+    String? id,
+    String? name,
+    String? type,
+    int? quantity,
+    String? imagePath,
+    String? description,
+    int? coinValue,
+    int? diamondValue,
+    ItemCategory? category,
+    InventoryItemType? itemType,
+    bool? isPremium,
+    bool? isConsumable,
+    int? evolutionStagesGranted,
+    XpBoostEffect? xpBoostEffect,
+    EggProgress? eggProgress,
+    EggRarity? eggRarity,
+    EnergyRefillEffect? energyRefillEffect,
+    BattleTicketAccess? battleTicketAccess,
+  }) {
+    return InventoryItem(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      quantity: quantity ?? this.quantity,
+      imagePath: imagePath ?? this.imagePath,
+      description: description ?? this.description,
+      coinValue: coinValue ?? this.coinValue,
+      diamondValue: diamondValue ?? this.diamondValue,
+      category: category ?? this.category,
+      itemType: itemType ?? this.itemType,
+      isPremium: isPremium ?? this.isPremium,
+      isConsumable: isConsumable ?? this.isConsumable,
+      evolutionStagesGranted:
+          evolutionStagesGranted ?? this.evolutionStagesGranted,
+      xpBoostEffect: xpBoostEffect ?? this.xpBoostEffect,
+      eggProgress: eggProgress ?? this.eggProgress,
+      eggRarity: eggRarity ?? this.eggRarity,
+      energyRefillEffect: energyRefillEffect ?? this.energyRefillEffect,
+      battleTicketAccess: battleTicketAccess ?? this.battleTicketAccess,
+    );
+  }
+}
+
+extension ItemCategoryX on ItemCategory {
+  String get label {
+    switch (this) {
+      case ItemCategory.progression:
+        return 'Progression';
+      case ItemCategory.consumable:
+        return 'Consumable';
+      case ItemCategory.access:
+        return 'Access';
+      case ItemCategory.special:
+        return 'Special';
+      case ItemCategory.support:
+        return 'Support';
+      case ItemCategory.potion:
+        return 'Potion';
+      case ItemCategory.boost:
+        return 'Boost';
+      case ItemCategory.ticket:
+        return 'Ticket';
+    }
+  }
+}
+
+extension InventoryItemTypeX on InventoryItemType {
+  String get label {
+    switch (this) {
+      case InventoryItemType.generic:
+        return 'Generic';
+      case InventoryItemType.evolutionCore:
+        return 'Evolution Core';
+      case InventoryItemType.xpBoostChip:
+        return 'XP Boost';
+      case InventoryItemType.egg:
+        return 'Egg';
+      case InventoryItemType.energyRefill:
+        return 'Energy Refill';
+      case InventoryItemType.battleTicket:
+        return 'Battle Ticket';
+    }
+  }
 }

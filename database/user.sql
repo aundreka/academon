@@ -59,6 +59,10 @@ create table inventory_items (
   type text not null,
   image_path text default '',
   description text not null default '',
+  coin_value int not null default 0
+    check (coin_value >= 0),
+  diamond_value int not null default 0
+    check (diamond_value >= 0),
   category text not null default 'consumable'
     check (category in (
       'progression',
@@ -87,6 +91,14 @@ create table inventory_items (
   xp_boost_battle_count int
     check (xp_boost_battle_count is null or xp_boost_battle_count >= 0),
   egg_subject_id text,
+  egg_rarity text
+    check (egg_rarity is null or egg_rarity in (
+      'common',
+      'uncommon',
+      'rare',
+      'ultra_rare',
+      'legendary'
+    )),
   egg_hatch_battle_requirement int
     check (egg_hatch_battle_requirement is null or egg_hatch_battle_requirement >= 0),
   egg_hatch_duration_seconds int
@@ -122,6 +134,8 @@ create table user_egg_instances (
   user_id uuid not null references profiles(id) on delete cascade,
   inventory_item_id text not null references inventory_items(id) on delete cascade,
   subject_id text,
+  egg_rarity text not null default 'common'
+    check (egg_rarity in ('common', 'uncommon', 'rare', 'ultra_rare', 'legendary')),
   hatch_battle_requirement int not null default 0,
   battles_completed int not null default 0,
   hatch_duration_seconds int,
@@ -137,6 +151,38 @@ create table user_egg_instances (
   constraint user_egg_instances_battles_not_over_requirement
     check (battles_completed <= hatch_battle_requirement or hatch_battle_requirement = 0)
 );
+
+create or replace function public.enforce_max_active_egg_instances()
+returns trigger
+language plpgsql
+as $$
+declare
+  active_egg_count int;
+begin
+  if new.hatched_at is not null then
+    return new;
+  end if;
+
+  select count(*)
+  into active_egg_count
+  from public.user_egg_instances
+  where user_id = new.user_id
+    and hatched_at is null
+    and id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000'::uuid);
+
+  if active_egg_count >= 3 then
+    raise exception 'Only 3 eggs can be hatched at one time.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists user_egg_instances_max_active_trigger on public.user_egg_instances;
+
+create trigger user_egg_instances_max_active_trigger
+before insert or update on public.user_egg_instances
+for each row execute procedure public.enforce_max_active_egg_instances();
 
 -- =========================
 -- AUTH -> PROFILE SYNC
@@ -234,6 +280,7 @@ grant execute on function public.get_login_email_by_username(text) to authentica
 alter table profiles enable row level security;
 alter table user_stats enable row level security;
 alter table friends enable row level security;
+alter table inventory_items enable row level security;
 alter table user_inventory enable row level security;
 alter table user_egg_instances enable row level security;
 
@@ -294,6 +341,12 @@ to authenticated
 using (auth.uid() = user_id or auth.uid() = friend_user_id)
 with check (auth.uid() = user_id or auth.uid() = friend_user_id);
 
+create policy "inventory_items_select_authenticated"
+on inventory_items
+for select
+to authenticated
+using (true);
+
 create policy "user_inventory_select_own"
 on user_inventory
 for select
@@ -312,6 +365,12 @@ for update
 to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+create policy "user_inventory_delete_own"
+on user_inventory
+for delete
+to authenticated
+using (auth.uid() = user_id);
 
 create policy "user_egg_instances_select_own"
 on user_egg_instances
@@ -338,6 +397,8 @@ insert into inventory_items (
   type,
   image_path,
   description,
+  coin_value,
+  diamond_value,
   category,
   item_type,
   is_premium,
@@ -346,6 +407,7 @@ insert into inventory_items (
   xp_multiplier,
   xp_boost_battle_count,
   egg_subject_id,
+  egg_rarity,
   egg_hatch_battle_requirement,
   egg_hatch_duration_seconds,
   energy_restore_amount,
@@ -360,14 +422,15 @@ values
     'evolution_core',
     'Evolution Core',
     'progression',
-    '',
+    'assets/items/evolution_core.png',
     'Instantly evolves a Pokemon to its next stage.',
+    2500,
+    25,
     'progression',
     'evolutionCore',
     true,
     true,
     1,
-    null,
     null,
     null,
     null,
@@ -383,8 +446,10 @@ values
     'xp_boost_chip',
     'XP Boost Chip',
     'boost',
-    '',
+    'assets/items/xp_boost_chip.png',
     '+50% XP for the next 3 battles.',
+    500,
+    5,
     'boost',
     'xpBoostChip',
     false,
@@ -399,15 +464,16 @@ values
     null,
     null,
     null,
-    null,
     now()
   ),
   (
-    'academy_egg',
-    'Academy Egg',
+    'egg_common_general',
+    'Starter Egg',
     'egg',
-    '',
+    'assets/items/common_egg.png',
     'Hatches over time or after enough battles.',
+    750,
+    8,
     'progression',
     'egg',
     false,
@@ -415,9 +481,88 @@ values
     0,
     null,
     null,
+    'General Knowledge',
+    'common',
+    3,
+    1800,
     null,
+    null,
+    null,
+    null,
+    null,
+    now()
+  ),
+  (
+    'egg_rare_science',
+    'Scholar Egg',
+    'egg',
+    'assets/items/rare_egg.png',
+    'Hatches over time or after enough battles.',
+    1200,
+    12,
+    'progression',
+    'egg',
+    false,
+    true,
+    0,
+    null,
+    null,
+    'Science',
+    'rare',
     5,
-    86400,
+    7200,
+    null,
+    null,
+    null,
+    null,
+    null,
+    now()
+  ),
+  (
+    'egg_ultra_rare_botany',
+    'Prism Egg',
+    'egg',
+    'assets/items/ultra_rare_egg.png',
+    'Hatches over time or after enough battles.',
+    1800,
+    18,
+    'progression',
+    'egg',
+    false,
+    true,
+    0,
+    null,
+    null,
+    'Botany',
+    'ultra_rare',
+    6,
+    14400,
+    null,
+    null,
+    null,
+    null,
+    null,
+    now()
+  ),
+  (
+    'egg_legendary_history',
+    'Mythic Egg',
+    'egg',
+    'assets/items/legendary_egg.png',
+    'Hatches over time or after enough battles.',
+    2400,
+    24,
+    'progression',
+    'egg',
+    false,
+    true,
+    0,
+    null,
+    null,
+    'History',
+    'legendary',
+    8,
+    28800,
     null,
     null,
     null,
@@ -429,13 +574,16 @@ values
     'energy_refill',
     'Energy Refill',
     'potion',
-    '',
+    'assets/items/energy_refill.png',
     'Restores stamina used for PvE modules.',
+    300,
+    3,
     'potion',
     'energyRefill',
     false,
     true,
     0,
+    null,
     null,
     null,
     null,
@@ -452,13 +600,16 @@ values
     'battle_ticket',
     'Battle Ticket',
     'ticket',
-    '',
+    'assets/items/battle_ticket.png',
     'Required to enter PvP or ranked battles.',
+    400,
+    4,
     'ticket',
     'battleTicket',
     false,
     true,
     0,
+    null,
     null,
     null,
     null,

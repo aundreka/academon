@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../core/data/pokemons.dart';
-import '../core/models/pokemon.dart';
-import '../core/theme/colors.dart';
-import '../core/theme/spacing.dart';
-import '../core/theme/textstyles.dart';
-import '../core/widgets/pokemon/card.dart';
-import '../core/widgets/pokemon/card_detail.dart';
-import '../core/widgets/ui/topnav.dart';
+import '../../core/data/pokemons.dart';
+import '../../core/models/pokemon.dart';
+import '../../core/theme/colors.dart';
+import '../../core/theme/spacing.dart';
+import '../../core/theme/textstyles.dart';
+import '../../core/widgets/pokemon/card.dart';
+import '../../core/widgets/pokemon/card_detail.dart';
+import '../../core/widgets/ui/topnav.dart';
+import 'inventory.dart';
 
 class PokemonsScreen extends StatefulWidget {
   const PokemonsScreen({super.key});
@@ -17,6 +18,7 @@ class PokemonsScreen extends StatefulWidget {
 }
 
 enum _SortMode { rarity, name }
+enum _InventorySection { pokemons, items }
 
 class _PokemonsScreenState extends State<PokemonsScreen> {
   static const String _allFilter = 'All';
@@ -26,6 +28,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
   late final List<String> _typeFilters;
   String _selectedTypeFilter = _allFilter;
   _SortMode _sortMode = _SortMode.rarity;
+  _InventorySection _section = _InventorySection.pokemons;
 
   @override
   void initState() {
@@ -48,7 +51,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
       children: [
         const AppTopNav(),
         Expanded(
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
               AppSpacing.sm,
@@ -56,11 +59,28 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
               AppSpacing.lg,
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildBattleDeckSection(),
-                const SizedBox(height: AppSpacing.lg),
-                _buildCollectionSection(filteredEntries),
+                _InventorySwitcher(
+                  value: _section,
+                  onChanged: (value) {
+                    setState(() => _section = value);
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Expanded(
+                  child: _section == _InventorySection.pokemons
+                      ? SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildBattleDeckSection(),
+                              const SizedBox(height: AppSpacing.lg),
+                              _buildCollectionSection(filteredEntries),
+                            ],
+                          ),
+                        )
+                      : const InventoryScreen(embedded: true),
+                ),
               ],
             ),
           ),
@@ -573,6 +593,93 @@ class _SortDropdown extends StatelessWidget {
               child: Text('By Name'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InventorySwitcher extends StatelessWidget {
+  final _InventorySection value;
+  final ValueChanged<_InventorySection> onChanged;
+
+  const _InventorySwitcher({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: AppColors.card.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SwitcherChip(
+              label: 'Pokemons',
+              selected: value == _InventorySection.pokemons,
+              onTap: () => onChanged(_InventorySection.pokemons),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: _SwitcherChip(
+              label: 'Inventory',
+              selected: value == _InventorySection.items,
+              onTap: () => onChanged(_InventorySection.items),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwitcherChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SwitcherChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withOpacity(0.18)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary.withOpacity(0.35)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.button.copyWith(
+              fontSize: 14,
+              color: selected ? AppColors.accent : AppColors.textSecondary,
+            ),
+          ),
         ),
       ),
     );

@@ -10,14 +10,17 @@ create table owned_pokemons (
 
   pokemon_id text not null,
 
-  level int not null default 1,
-  xp int not null default 0,
-  current_hp int not null,
+  level int not null default 1 check (level >= 1),
+  xp int not null default 0 check (xp >= 0),
+  current_hp int not null check (current_hp >= 0),
   nickname text,
 
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+create index if not exists owned_pokemons_user_id_idx
+on owned_pokemons(user_id, created_at desc);
 
 -- =========================
 -- POKEMON TEAMS

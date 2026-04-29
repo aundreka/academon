@@ -1,86 +1,135 @@
-import 'package:flutter/material.dart';
 import 'dart:math';
 
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/data/item_inventory_service.dart';
+import '../core/data/shop_catalog.dart';
 import '../core/models/item.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/textstyles.dart';
-import '../core/widgets/item/card.dart';
-import '../core/widgets/item/card_detail.dart';
+import '../core/widgets/item/buy.dart';
 import '../core/widgets/item/egg.dart';
+import '../core/widgets/item/item.dart';
 import '../core/widgets/ui/topnav.dart';
 
-class ShopScreen extends StatelessWidget {
+class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final catalog = _shopCatalog;
-    final hatcheryEggs = _hatcheryEggs;
-    final dailyOffers = _buildDailyOffers(catalog);
+  State<ShopScreen> createState() => _ShopScreenState();
+}
 
-    return Column(
+class _ShopScreenState extends State<ShopScreen> {
+  late final ItemInventoryService _itemInventoryService;
+  int _topNavRefreshSeed = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _itemInventoryService = ItemInventoryService(Supabase.instance.client);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dailyOffers = _buildDailyOffers(shopCatalog);
+
+    return Stack(
       children: [
-        const AppTopNav(),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.sm,
-              AppSpacing.lg,
-              AppSpacing.xl,
+        const Positioned.fill(
+          child: _ShopBackground(),
+        ),
+        Column(
+          children: [
+            AppTopNav(key: ValueKey(_topNavRefreshSeed)),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SectionHeader(
+                      title: 'Daily Offers',
+                      subtitle:
+                          'Three rotating picks with 50% off in both coins and diamonds.',
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _DailyOffersSection(
+                      offers: dailyOffers,
+                      onOfferTap: (offer) {
+                        _showPurchaseDialog(
+                          offer.item,
+                          coinPrice: offer.discountedCoins,
+                          diamondPrice: offer.discountedDiamonds,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    _SectionHeader(
+                      title: 'Egg Market',
+                      subtitle:
+                          'Choose your next hatch carefully. Only 3 eggs can incubate at once.',
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _ShopGrid(
+                      items: shopEggCatalog,
+                      onItemTap: _showPurchaseDialog,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    _SectionHeader(
+                      title: 'Items',
+                      subtitle:
+                          'Boosts, refills, and battle access for the next run.',
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _ShopGrid(
+                      items: shopItemCatalog,
+                      onItemTap: _showPurchaseDialog,
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionHeader(
-                  title: 'Hatchery',
-                  subtitle: 'Warm nests where your eggs slowly crack open between battles.',
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _HatcheryPanel(
-                  eggs: hatcheryEggs,
-                  onItemTap: (item) => _showItemDetails(context, item),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                _SectionHeader(
-                  title: 'Daily Offers',
-                  subtitle: 'Three rotating picks with 50% off in both coins and diamonds.',
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _DailyOffersSection(
-                  offers: dailyOffers,
-                  onItemTap: (item) => _showItemDetails(context, item),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                _SectionHeader(
-                  title: 'Shop',
-                  subtitle: 'Stock up on boosts, tickets, and progression items for the next run.',
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _ShopGrid(
-                  items: catalog,
-                  onItemTap: (item) => _showItemDetails(context, item),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       ],
     );
   }
 
-  void _showItemDetails(BuildContext context, InventoryItem item) {
-    showDialog<void>(
+  Future<void> _showPurchaseDialog(
+    InventoryItem item, {
+    int? coinPrice,
+    int? diamondPrice,
+  }) async {
+    await showDialog<void>(
       context: context,
       builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(AppSpacing.lg),
-          child: ItemCardDetail(
-            item: item,
-            margin: EdgeInsets.zero,
-          ),
+        return ItemPurchaseDialog(
+          item: item,
+          coinPrice: coinPrice,
+          diamondPrice: diamondPrice,
+          onPurchase: (currency) {
+            return _itemInventoryService.purchaseItem(
+              item: item,
+              currency: currency,
+              coinPrice: coinPrice,
+              diamondPrice: diamondPrice,
+            );
+          },
+          onSuccess: () {
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _topNavRefreshSeed++;
+            });
+          },
         );
       },
     );
@@ -115,233 +164,31 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _HatcheryPanel extends StatelessWidget {
-  final List<_HatcheryEggEntry> eggs;
-  final ValueChanged<InventoryItem> onItemTap;
-
-  const _HatcheryPanel({
-    required this.eggs,
-    required this.onItemTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final eggTiles =
-        eggs
-            .map(
-              (entry) => _HatcheryEggTile(
-                entry: entry,
-                onTap: () => onItemTap(entry.item),
-              ),
-            )
-            .toList();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF6A2F12),
-            Color(0xFFB95A1F),
-            Color(0xFFF39B48),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF7A3412).withOpacity(0.34),
-            blurRadius: 26,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -18,
-            right: -6,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.10),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _NestTexturePainter(),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.egg_alt_rounded,
-                    color: Color(0xFFFFE2B6),
-                    size: 22,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Incubation Queue',
-                    style: AppTextStyles.button.copyWith(
-                      fontSize: 18,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Battle, wait, and come back when the shell starts to split.',
-                style: AppTextStyles.body.copyWith(
-                  color: const Color(0xFFFFF1D9),
-                  height: 1.4,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.md,
-                children: eggTiles,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HatcheryEggTile extends StatelessWidget {
-  final _HatcheryEggEntry entry;
-  final VoidCallback onTap;
-
-  const _HatcheryEggTile({
-    required this.entry,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = entry.progress.clamp(0.0, 1.0);
-    final ready = entry.isReadyToHatch;
-
-    return Container(
-      width: 188,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.16),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.12),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          EggCard(
-            item: entry.item,
-            width: 156,
-            height: 156,
-            onTap: onTap,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            entry.item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.button.copyWith(
-              fontSize: 14,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            entry.label,
-            style: AppTextStyles.body.copyWith(
-              color: const Color(0xFFFFEED0),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (ready)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF1C1).withOpacity(0.18),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                'Ready To Hatch',
-                textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(
-                  color: const Color(0xFFFFF3C8),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            )
-          else ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                minHeight: 10,
-                value: progress,
-                backgroundColor: Colors.white.withOpacity(0.14),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFFE08A)),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              '${(progress * 100).round()}% warmed up',
-              style: AppTextStyles.body.copyWith(
-                color: const Color(0xFFFFEED0),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _DailyOffersSection extends StatelessWidget {
   final List<_DailyOffer> offers;
-  final ValueChanged<InventoryItem> onItemTap;
+  final ValueChanged<_DailyOffer> onOfferTap;
 
   const _DailyOffersSection({
     required this.offers,
-    required this.onItemTap,
+    required this.onOfferTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.lg,
-      runSpacing: AppSpacing.lg,
-      children: offers
-          .map(
-            (offer) => _OfferTile(
-              offer: offer,
-              onTap: () => onItemTap(offer.item),
-            ),
-          )
-          .toList(),
+    return SizedBox(
+      height: 318,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: offers.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.lg),
+        itemBuilder: (context, index) {
+          final offer = offers[index];
+          return _OfferTile(
+            offer: offer,
+            onTap: () => onOfferTap(offer),
+          );
+        },
+      ),
     );
   }
 }
@@ -361,9 +208,8 @@ class _OfferTile extends StatelessWidget {
       width: 240,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: const Color(0xFF182544).withOpacity(0.9),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFFFD166).withOpacity(0.24)),
         boxShadow: [
           BoxShadow(
             color: AppColors.background.withOpacity(0.22),
@@ -440,6 +286,119 @@ class _OfferTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ShopBackground extends StatelessWidget {
+  const _ShopBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0D1024),
+            Color(0xFF101B39),
+            Color(0xFF13264A),
+          ],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -60,
+            left: -40,
+            child: _GlowBlob(
+              size: 220,
+              color: Color(0xFF54D2FF),
+            ),
+          ),
+          Positioned(
+            top: 140,
+            right: -40,
+            child: _GlowBlob(
+              size: 200,
+              color: Color(0xFFFFA94D),
+            ),
+          ),
+          Positioned(
+            bottom: 40,
+            left: 40,
+            child: _GlowBlob(
+              size: 180,
+              color: Color(0xFF7D6BFF),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _ShopTexturePainter(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlowBlob extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _GlowBlob({
+    required this.size,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            color.withOpacity(0.34),
+            color.withOpacity(0.12),
+            Colors.transparent,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShopTexturePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..strokeWidth = 1;
+    final dotPaint = Paint()
+      ..color = const Color(0xFF9AE7FF).withOpacity(0.12);
+
+    const gap = 28.0;
+    for (double y = -20; y < size.height + 20; y += gap) {
+      final path = Path()
+        ..moveTo(0, y)
+        ..quadraticBezierTo(size.width * 0.3, y + 10, size.width * 0.6, y - 8)
+        ..quadraticBezierTo(size.width * 0.84, y - 18, size.width, y);
+      canvas.drawPath(path, linePaint);
+    }
+
+    for (double x = 22; x < size.width; x += 72) {
+      for (double y = 18; y < size.height; y += 72) {
+        canvas.drawCircle(Offset(x, y), 2.2, dotPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _OfferPriceRow extends StatelessWidget {
@@ -527,41 +486,6 @@ class _ShopGrid extends StatelessWidget {
   }
 }
 
-class _NestTexturePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.06)
-      ..strokeWidth = 2.2
-      ..style = PaintingStyle.stroke;
-
-    for (double y = 24; y < size.height; y += 34) {
-      final path = Path();
-      path.moveTo(0, y);
-      path.quadraticBezierTo(size.width * 0.25, y - 10, size.width * 0.5, y);
-      path.quadraticBezierTo(size.width * 0.75, y + 10, size.width, y - 4);
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _HatcheryEggEntry {
-  final InventoryItem item;
-  final String label;
-  final double progress;
-
-  const _HatcheryEggEntry({
-    required this.item,
-    required this.label,
-    required this.progress,
-  });
-
-  bool get isReadyToHatch => progress >= 1;
-}
-
 class _DailyOffer {
   final InventoryItem item;
   final int discountedCoins;
@@ -590,103 +514,3 @@ List<_DailyOffer> _buildDailyOffers(List<InventoryItem> catalog) {
       )
       .toList();
 }
-
-final List<InventoryItem> _shopCatalog = [
-  InventoryItem.evolutionCore(
-    id: 'shop_evolution_core',
-    imagePath: 'assets/items/evolution_core.png',
-  ),
-  InventoryItem.xpBoostChip(
-    id: 'shop_xp_boost_chip',
-    imagePath: 'assets/items/xp_boost_chip.png',
-  ),
-  InventoryItem.egg(
-    id: 'shop_common_egg',
-    name: 'Starter Egg',
-    imagePath: 'assets/items/common_egg.png',
-    rarity: EggRarity.common,
-    coinValue: 750,
-    diamondValue: 8,
-    eggProgress: const EggProgress(
-      subjectId: 'General Knowledge',
-      hatchBattleRequirement: 3,
-    ),
-  ),
-  InventoryItem.egg(
-    id: 'shop_rare_egg',
-    name: 'Scholar Egg',
-    imagePath: 'assets/items/rare_egg.png',
-    rarity: EggRarity.rare,
-    coinValue: 1200,
-    diamondValue: 12,
-    eggProgress: const EggProgress(
-      subjectId: 'Science',
-      hatchBattleRequirement: 5,
-    ),
-  ),
-  InventoryItem.egg(
-    id: 'shop_legendary_egg',
-    name: 'Mythic Egg',
-    imagePath: 'assets/items/legendary_egg.png',
-    rarity: EggRarity.legendary,
-    coinValue: 2400,
-    diamondValue: 24,
-    eggProgress: const EggProgress(
-      subjectId: 'History',
-      hatchBattleRequirement: 8,
-    ),
-  ),
-  InventoryItem.energyRefill(
-    id: 'shop_energy_refill',
-    imagePath: 'assets/items/energy_refill.png',
-  ),
-  InventoryItem.battleTicket(
-    id: 'shop_battle_ticket',
-    imagePath: 'assets/items/battle_ticket.png',
-  ),
-];
-
-final List<_HatcheryEggEntry> _hatcheryEggs = [
-  _HatcheryEggEntry(
-    item: InventoryItem.egg(
-      id: 'hatchery_math_egg',
-      name: 'Math Egg',
-      imagePath: 'assets/items/common_egg.png',
-      rarity: EggRarity.uncommon,
-      eggProgress: const EggProgress(
-        subjectId: 'Mathematics',
-        hatchBattleRequirement: 4,
-      ),
-    ),
-    label: '2 / 4 battles complete',
-    progress: 0.5,
-  ),
-  _HatcheryEggEntry(
-    item: InventoryItem.egg(
-      id: 'hatchery_science_egg',
-      name: 'Science Egg',
-      imagePath: 'assets/items/rare_egg.png',
-      rarity: EggRarity.rare,
-      eggProgress: const EggProgress(
-        subjectId: 'Science',
-        hatchBattleRequirement: 5,
-      ),
-    ),
-    label: '4 / 5 battles complete',
-    progress: 0.8,
-  ),
-  _HatcheryEggEntry(
-    item: InventoryItem.egg(
-      id: 'hatchery_history_egg',
-      name: 'History Egg',
-      imagePath: 'assets/items/legendary_egg.png',
-      rarity: EggRarity.legendary,
-      eggProgress: const EggProgress(
-        subjectId: 'History',
-        hatchBattleRequirement: 6,
-      ),
-    ),
-    label: 'Shell cracked and glowing',
-    progress: 1,
-  ),
-];
