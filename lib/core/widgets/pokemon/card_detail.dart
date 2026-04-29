@@ -219,21 +219,55 @@ class _PlayableCard extends StatelessWidget {
                       end: Alignment.bottomRight,
                       colors: isLegendary
                           ? [
-                              Colors.white.withOpacity(0.26),
-                              const Color(0xFFFF80AB).withOpacity(0.14),
-                              const Color(0xFFFFD93D).withOpacity(0.12),
-                              const Color(0xFF80D8FF).withOpacity(0.12),
-                              const Color(0xFF7C4DFF).withOpacity(0.10),
+                              Colors.white.withOpacity(0.34),
+                              const Color(0xFFFF80AB).withOpacity(0.18),
+                              const Color(0xFFFFD93D).withOpacity(0.16),
+                              const Color(0xFF80D8FF).withOpacity(0.16),
+                              const Color(0xFF7C4DFF).withOpacity(0.14),
                               Colors.transparent,
                             ]
                           : [
-                              Colors.white.withOpacity(0.22),
-                              const Color(0xFFFFE082).withOpacity(0.16),
+                              Colors.white.withOpacity(0.30),
+                              const Color(0xFFFFE082).withOpacity(0.24),
+                              const Color(0xFFFFC94A).withOpacity(0.14),
                               Colors.transparent,
                             ],
                       stops: isLegendary
                           ? const [0.0, 0.18, 0.38, 0.56, 0.72, 0.92]
-                          : const [0.0, 0.32, 0.82],
+                          : const [0.0, 0.28, 0.52, 0.86],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (isUltraRare || isLegendary)
+            Positioned(
+              top: -18,
+              left: -36,
+              child: IgnorePointer(
+                child: Transform.rotate(
+                  angle: -0.65,
+                  child: Container(
+                    width: 170,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isLegendary
+                            ? [
+                                Colors.white.withOpacity(0.0),
+                                Colors.white.withOpacity(0.42),
+                                const Color(0xFFFFD93D).withOpacity(0.22),
+                                const Color(0xFF59D8FF).withOpacity(0.16),
+                                Colors.white.withOpacity(0.0),
+                              ]
+                            : [
+                                Colors.white.withOpacity(0.0),
+                                Colors.white.withOpacity(0.34),
+                                const Color(0xFFFFF59D).withOpacity(0.20),
+                                Colors.white.withOpacity(0.0),
+                              ],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
@@ -675,46 +709,45 @@ class _RarityBadge extends StatelessWidget {
     final isLegendary = lower == 'legendary';
     final isUltraRare = lower == 'ultra rare';
 
-    final rarityText = Text(
+    return Text(
       label,
       style: AppTextStyles.title.copyWith(
-        fontSize: 30,
-        color: isLegendary ? Colors.white : color,
+        fontSize: 60,
+        color: isLegendary ? null : color,
+        foreground: isLegendary
+            ? (Paint()
+              ..shader = const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFF6B6B),
+                  Color(0xFFFFD93D),
+                  Color(0xFF59D8FF),
+                  Color(0xFF7C4DFF),
+                ],
+              ).createShader(const Rect.fromLTWH(0, 0, 120, 80)))
+            : null,
         shadows: isLegendary
             ? const [
-                Shadow(color: Color(0xFFFF6B6B), blurRadius: 10),
-                Shadow(color: Color(0xFFFFD93D), blurRadius: 18),
-                Shadow(color: Color(0xFF59D8FF), blurRadius: 26),
-                Shadow(color: Color(0xFF7C4DFF), blurRadius: 34),
+                Shadow(color: Color(0xFFFF6B6B), blurRadius: 16),
+                Shadow(color: Color(0xFFFFD93D), blurRadius: 28),
+                Shadow(color: Color(0xFF59D8FF), blurRadius: 40),
+                Shadow(color: Color(0xFF7C4DFF), blurRadius: 52),
               ]
             : isUltraRare
                 ? [
                     Shadow(
-                      color: color.withOpacity(0.28),
-                      blurRadius: 12,
+                      color: const Color(0xFFFFD93D),
+                      blurRadius: 22,
+                    ),
+                    Shadow(
+                      color: color.withOpacity(0.34),
+                      blurRadius: 14,
                     ),
                   ]
                 : null,
       ),
     );
-
-    if (isLegendary) {
-      return ShaderMask(
-        shaderCallback: (bounds) => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFF6B6B),
-            Color(0xFFFFD93D),
-            Color(0xFF59D8FF),
-            Color(0xFF7C4DFF),
-          ],
-        ).createShader(bounds),
-        child: rarityText,
-      );
-    }
-
-    return rarityText;
   }
 }
 

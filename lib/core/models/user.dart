@@ -1,3 +1,5 @@
+import 'item.dart';
+
 class UserStats {
   final int xp;
   final int level;
@@ -59,22 +61,6 @@ class Friend {
     required this.username,
     this.avatarPath = '',
     this.isOnline = false,
-  });
-}
-
-class InventoryItem {
-  final String id;
-  final String name;
-  final String type; // potion, ticket, egg, boost, etc.
-  final int quantity;
-  final String imagePath;
-
-  const InventoryItem({
-    required this.id,
-    required this.name,
-    required this.type,
-    this.quantity = 1,
-    this.imagePath = '',
   });
 }
 

@@ -3,7 +3,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/current_user_profile.dart';
-import '../../../screens/profile.dart';
+import '../../../screens/profile/profile.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/textstyles.dart';

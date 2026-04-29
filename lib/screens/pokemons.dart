@@ -188,7 +188,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                               xp: entry.xp,
                               xpGoal: entry.xpGoal,
                               width: cardWidth,
-                              height: cardWidth * 1.56,
+                              height: cardWidth * 1.68,
                               onTap: () => _showPokemonDetails(entry.pokemon),
                             ),
                           );

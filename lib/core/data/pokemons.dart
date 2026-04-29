@@ -238,7 +238,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 80,
     abilities: [shadowSneak],
-    imagePath: 'pokemons/abra.png',
+    imagePath: 'pokemons/gastly.png',
     description:
         'A ghostly ball of gas that slips through darkness to ambush unsuspecting foes.',
   ),
@@ -253,7 +253,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 95,
     abilities: [shadowSneak, curseMist],
-    imagePath: 'pokemons/kadabra.png',
+    imagePath: 'pokemons/haunter.png',
     description:
         'It lurks in walls and shadows, spreading a chilling curse with a grin.',
   ),
@@ -268,7 +268,7 @@ const starterCreatures = [
     evolution: 3,
     baseSpeed: 110,
     abilities: [shadowSneak, curseMist, phantomRaid],
-    imagePath: 'pokemons/kadabra.png',
+    imagePath: 'pokemons/gengar.png',
     description:
         'It hides in dark corners, waiting to strike with a playful but dangerous grin.',
   ),
@@ -283,7 +283,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 30,
     abilities: [poisonPowder],
-    imagePath: 'pokemons/bulbasaur.png',
+    imagePath: 'pokemons/oddish.png',
     description:
         'It buries itself in rich soil during the day and wanders quietly at night.',
   ),
@@ -298,7 +298,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 40,
     abilities: [poisonPowder, sweetScent],
-    imagePath: 'pokemons/ivysaur.png',
+    imagePath: 'pokemons/gloom.png',
     description:
         'The nectar it drools smells awful, but that same scent can pull prey close.',
   ),
@@ -313,7 +313,7 @@ const starterCreatures = [
     evolution: 3,
     baseSpeed: 50,
     abilities: [poisonPowder, sweetScent, venomBloom],
-    imagePath: 'pokemons/venusaur.png',
+    imagePath: 'pokemons/vileplume.png',
     description:
         'Its giant flower releases bursts of pollen strong enough to sway a whole field.',
   ),
