@@ -3,16 +3,24 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/textstyles.dart';
+import '../core/widgets/ui/topnav.dart';
 
 class PokemonsScreen extends StatelessWidget {
   const PokemonsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const _ScreenPlaceholder(
-      title: 'Pokemons',
-      subtitle: 'Browse your collection with quick, card-first access.',
-      icon: Icons.grid_view_rounded,
+    return const Column(
+      children: [
+        AppTopNav(),
+        Expanded(
+          child: _ScreenPlaceholder(
+            title: 'Pokemons',
+            subtitle: 'Browse your collection with quick, card-first access.',
+            icon: Icons.grid_view_rounded,
+          ),
+        ),
+      ],
     );
   }
 }

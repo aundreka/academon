@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/theme/theme.dart';
 import 'core/widgets/ui/bottomnav.dart';
-import 'core/widgets/ui/topnav.dart';
 import 'screens/arena.dart';
 import 'screens/home.dart';
 import 'screens/pokemons.dart';
@@ -36,14 +35,19 @@ class AcademonApp extends StatelessWidget {
 }
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final int initialIndex;
+
+  const MainScreen({
+    super.key,
+    this.initialIndex = 2,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _index = 2; // default = Home
+  late int _index;
 
   final List<Widget> screens = const [
     ArenaScreen(),
@@ -54,14 +58,15 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          const AppTopNav(),
-          Expanded(child: screens[_index]),
-        ],
-      ),
+      body: screens[_index],
       bottomNavigationBar: AppBottomNav(
         currentIndex: _index,
         onTap: (i) {

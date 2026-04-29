@@ -3,16 +3,24 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/textstyles.dart';
+import '../core/widgets/ui/topnav.dart';
 
 class ArenaScreen extends StatelessWidget {
   const ArenaScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const _ScreenPlaceholder(
-      title: 'Arena',
-      subtitle: 'Train your lineup and prep for geometric battles.',
-      icon: Icons.hexagon_outlined,
+    return const Column(
+      children: [
+        AppTopNav(),
+        Expanded(
+          child: _ScreenPlaceholder(
+            title: 'Arena',
+            subtitle: 'Train your lineup and prep for geometric battles.',
+            icon: Icons.hexagon_outlined,
+          ),
+        ),
+      ],
     );
   }
 }

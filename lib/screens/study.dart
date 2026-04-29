@@ -3,16 +3,24 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/textstyles.dart';
+import '../core/widgets/ui/topnav.dart';
 
 class StudyScreen extends StatelessWidget {
   const StudyScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const _ScreenPlaceholder(
-      title: 'Study',
-      subtitle: 'Review lessons and sharpen strategy between matches.',
-      icon: Icons.menu_book_rounded,
+    return const Column(
+      children: [
+        AppTopNav(),
+        Expanded(
+          child: _ScreenPlaceholder(
+            title: 'Study',
+            subtitle: 'Review lessons and sharpen strategy between matches.',
+            icon: Icons.menu_book_rounded,
+          ),
+        ),
+      ],
     );
   }
 }

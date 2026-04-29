@@ -142,7 +142,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 43,
     ability: 'Withdraw: Reduces damage taken from the next incorrect answer by 50%.',
-    imagePath: 'assets/pokemons/squirtle.jpg',
+    imagePath: 'images/pokemons/squirtle.jpg',
     description: 'After birth, its back swells and hardens into a shell. It powerfully sprays foam from its mouth.',
   ),
    Pokemon(
@@ -156,7 +156,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 58,
     ability: 'Aqua Ring: Extends the answer timer by 5 seconds for every question.',
-    imagePath: 'assets/pokemons/wartortle.jpg',
+    imagePath: 'images/pokemons/wartortle.jpg',
     description: 'It is recognized as a symbol of longevity. If its shell has algae on it, that Wartortle is very old.',
   ),
    Pokemon(
@@ -170,7 +170,7 @@ const starterCreatures = [
     evolution: 3,
     baseSpeed: 78,
     ability: 'Hydro Cannon: Once per match, resets the timer and provides a "Free Hint" that highlights the correct answer.',
-    imagePath: 'assets/pokemons/blastoise.jpg',
+    imagePath: 'images/pokemons/blastoise.jpg',
     description: 'It crushes its foe under its heavy body to cause fainting. In a pinch, it will withdraw inside its shell.',
   ),
 
@@ -185,7 +185,7 @@ const starterCreatures = [
     evolution: 1,
     baseSpeed: 60,
     ability: 'Static: 30% chance to "Paralyze" the enemy on a correct answer, freezing their timer for 3 seconds.',
-    imagePath: 'assets/pokemons/pichu.jpg',
+    imagePath: 'images/pokemons/pichu.jpg',
     description: 'It is not yet proficient at storing electricity. It may send out a jolt if amused or startled.',
   ),
    Pokemon(
@@ -199,7 +199,7 @@ const starterCreatures = [
     evolution: 2,
     baseSpeed: 90,
     ability: 'Quick Attack: If you answer within the first 5 seconds, your attack ignores the enemy’s Defense.',
-    imagePath: 'assets/pokemons/pikachu.jpg',
+    imagePath: 'images/pokemons/pikachu.jpg',
     description: 'Pikachu that can generate powerful electricity have cheek sacs that are extra soft and super stretchy.',
   ),
    Pokemon(
@@ -213,7 +213,7 @@ const starterCreatures = [
     evolution: 3,
     baseSpeed: 110,
     ability: 'Thunderbolt: Every 3rd correct answer forces the enemy to answer a "Flash Round" (reduced time) question.',
-    imagePath: 'assets/pokemons/raichu.jpg',
+    imagePath: 'images/pokemons/raichu.jpg',
     description: 'Its long tail serves as a ground to protect itself from its own high-voltage power.',
   ),
 ];

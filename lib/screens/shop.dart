@@ -3,16 +3,24 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/textstyles.dart';
+import '../core/widgets/ui/topnav.dart';
 
 class ShopScreen extends StatelessWidget {
   const ShopScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const _ScreenPlaceholder(
-      title: 'Shop',
-      subtitle: 'Pick up items, boosts, and upgrades for the next run.',
-      icon: Icons.shopping_bag_outlined,
+    return const Column(
+      children: [
+        AppTopNav(),
+        Expanded(
+          child: _ScreenPlaceholder(
+            title: 'Shop',
+            subtitle: 'Pick up items, boosts, and upgrades for the next run.',
+            icon: Icons.shopping_bag_outlined,
+          ),
+        ),
+      ],
     );
   }
 }

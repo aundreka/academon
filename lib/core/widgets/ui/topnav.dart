@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../screens/profile.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/textstyles.dart';
 
 class AppTopNav extends StatefulWidget {
-  const AppTopNav({super.key});
+  final bool profileTapEnabled;
+
+  const AppTopNav({
+    super.key,
+    this.profileTapEnabled = true,
+  });
 
   @override
   State<AppTopNav> createState() => _AppTopNavState();
@@ -72,15 +78,15 @@ class _AppTopNavState extends State<AppTopNav> {
               AppSpacing.md,
               AppSpacing.md,
               AppSpacing.md,
-              AppSpacing.sm,
+              AppSpacing.xs,
             ),
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: 10,
+            ),
             decoration: BoxDecoration(
-              color: AppColors.card,
+              color: const Color(0xFF151E31),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.18),
-              ),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.background.withOpacity(0.35),
@@ -94,6 +100,7 @@ class _AppTopNavState extends State<AppTopNav> {
                 _ProfileBadge(
                   avatarPath: data.avatarPath,
                   isLoading: isLoading,
+                  profileTapEnabled: widget.profileTapEnabled,
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
@@ -105,20 +112,23 @@ class _AppTopNavState extends State<AppTopNav> {
                     hasError: hasError,
                   ),
                 ),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: 104),
                 _StatPill(
                   icon: PhosphorIcons.coins(),
                   value: data.coins.toString(),
+                  iconColor: const Color(0xFFF4C542),
                 ),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: AppSpacing.md),
                 _StatPill(
                   icon: PhosphorIcons.sparkle(),
                   value: data.xp.toString(),
+                  iconColor: const Color(0xFF59D8FF),
                 ),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: AppSpacing.md),
                 _StatPill(
                   icon: PhosphorIcons.fire(),
                   value: data.streak.toString(),
+                  iconColor: const Color(0xFFFF6B5E),
                 ),
               ],
             ),
@@ -132,10 +142,12 @@ class _AppTopNavState extends State<AppTopNav> {
 class _ProfileBadge extends StatelessWidget {
   final String avatarPath;
   final bool isLoading;
+  final bool profileTapEnabled;
 
   const _ProfileBadge({
     required this.avatarPath,
     required this.isLoading,
+    required this.profileTapEnabled,
   });
 
   @override
@@ -144,43 +156,64 @@ class _ProfileBadge extends StatelessWidget {
     final isNetworkAvatar =
         avatarPath.startsWith('http://') || avatarPath.startsWith('https://');
 
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.background,
-        border: Border.all(color: AppColors.accent.withOpacity(0.35), width: 1.5),
-      ),
-      child: ClipOval(
-        child: hasAvatar
-            ? isNetworkAvatar
-                ? Image.network(
-                    avatarPath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const _ProfileIcon(),
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const _ProfileIcon();
-                    },
-                  )
-                : Image.asset(
-                    avatarPath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const _ProfileIcon(),
-                  )
-            : isLoading
-                ? const Center(
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  )
-                : const _ProfileIcon(),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: profileTapEnabled
+            ? () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ProfileScreen(),
+                  ),
+                );
+              }
+            : null,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF202D46),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.background.withOpacity(0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: hasAvatar
+                ? isNetworkAvatar
+                    ? Image.network(
+                        avatarPath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const _ProfileIcon(),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const _ProfileIcon();
+                        },
+                      )
+                    : Image.asset(
+                        avatarPath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const _ProfileIcon(),
+                      )
+                : isLoading
+                    ? const Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                      )
+                    : const _ProfileIcon(),
+          ),
+        ),
       ),
     );
   }
@@ -194,8 +227,8 @@ class _ProfileIcon extends StatelessWidget {
     return Center(
       child: Icon(
         PhosphorIcons.userCircle(),
-        color: AppColors.textPrimary,
-        size: 28,
+        color: const Color(0xFFC6D4F8),
+        size: 24,
       ),
     );
   }
@@ -232,35 +265,36 @@ class _XpSection extends StatelessWidget {
                 username,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.button.copyWith(fontSize: 14),
+                style: AppTextStyles.button.copyWith(fontSize: 13),
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
             Text(
               'Lv $level',
               style: AppTextStyles.body.copyWith(
-                color: AppColors.accent,
+                fontSize: 12,
+                color: const Color(0xFF7FE0FF),
                 fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(999),
           child: LinearProgressIndicator(
             value: isLoading ? null : progress,
-            minHeight: 10,
-            backgroundColor: AppColors.background,
-            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+            minHeight: 8,
+            backgroundColor: const Color(0xFF22314A),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF61D7FF)),
           ),
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: 3),
         Text(
           hasError
               ? 'Unable to load player stats'
               : '$xp / $xpTarget XP',
-          style: AppTextStyles.body.copyWith(fontSize: 11),
+          style: AppTextStyles.body.copyWith(fontSize: 10),
         ),
       ],
     );
@@ -275,34 +309,30 @@ class _XpSection extends StatelessWidget {
 class _StatPill extends StatelessWidget {
   final PhosphorIconData icon;
   final String value;
+  final Color iconColor;
 
   const _StatPill({
     required this.icon,
     required this.value,
+    required this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 10,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.12),
-        ),
+        horizontal: AppSpacing.xs,
+        vertical: 4,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: AppColors.accent),
+          Icon(icon, size: 14, color: iconColor),
           const SizedBox(width: AppSpacing.xs),
           Text(
             value,
             style: AppTextStyles.body.copyWith(
+              fontSize: 12,
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w700,
             ),

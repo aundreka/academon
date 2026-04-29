@@ -3,16 +3,24 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/textstyles.dart';
+import '../core/widgets/ui/topnav.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const _ScreenPlaceholder(
-      title: 'Home',
-      subtitle: 'Jump back into the adventure from the central hub.',
-      icon: Icons.home_outlined,
+    return const Column(
+      children: [
+        AppTopNav(),
+        Expanded(
+          child: _ScreenPlaceholder(
+            title: 'Home',
+            subtitle: 'Jump back into the adventure from the central hub.',
+            icon: Icons.home_outlined,
+          ),
+        ),
+      ],
     );
   }
 }
