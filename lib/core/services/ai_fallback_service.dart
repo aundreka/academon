@@ -1,0 +1,198 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
+
+import 'n8n_service.dart';
+
+class AiFallbackService {
+  static const String _baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  static const String _apiKey = String.fromEnvironment(
+    'OPENROUTER_API_KEY',
+    defaultValue: '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',
+  );
+  static const String _model = String.fromEnvironment(
+    'OPENROUTER_MODEL',
+    defaultValue: 'qwen/qwen-plus',
+  );
+
+  static void _ensureConfigured() {
+    if (_apiKey.isEmpty) {
+      throw Exception(
+        'Fallback API is not configured. Run with --dart-define=OPENROUTER_API_KEY=<your-key>',
+      );
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> generateFlashcardsFromPdf(
+    Uint8List pdfBytes,
+  ) async {
+    _ensureConfigured();
+    final materialText = N8nService.extractTextFromPdf(pdfBytes).trim();
+    if (materialText.isEmpty) {
+      throw Exception('No readable text was found in the selected PDF.');
+    }
+    final trimmedMaterial = materialText.length > 12000
+        ? materialText.substring(0, 12000)
+        : materialText;
+
+    final response = await _chatComplete(
+      systemPrompt:
+          'You are an educational AI. Output ONLY raw JSON in this exact shape: '
+          '{"flashcards":[{"front":"...","back":"..."}]}.',
+      userPrompt:
+          'Generate 10-20 concise flashcards from this material:\n$trimmedMaterial',
+    );
+
+    final parsed = _parseJsonObject(response);
+    final cards = parsed['flashcards'];
+    if (cards is! List) return <Map<String, dynamic>>[];
+    return cards
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> generateReviewerFromPdf(
+    Uint8List pdfBytes,
+  ) async {
+    _ensureConfigured();
+    final materialText = N8nService.extractTextFromPdf(pdfBytes).trim();
+    if (materialText.isEmpty) {
+      throw Exception('No readable text was found in the selected PDF.');
+    }
+
+    final trimmedMaterial = materialText.length > 12000
+        ? materialText.substring(0, 12000)
+        : materialText;
+
+    final response = await _chatComplete(
+      systemPrompt:
+          'You are an educational AI. Output ONLY raw JSON. '
+          'Preferred shape is a JSON array where each item is: '
+          '{"title":"...","material":"...","quiz":["..."]}. '
+          'If needed, you may output {"modules":[...]} with the same item shape.',
+      userPrompt:
+          'Create 3-8 reviewer modules from this material. '
+          'Each module needs a short title, concise material summary, and 3-5 quiz questions.\n$trimmedMaterial',
+    );
+
+    final parsed = _parseReviewerModules(response);
+    return parsed
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  static Future<String> _chatComplete({
+    required String systemPrompt,
+    required String userPrompt,
+  }) async {
+    final response = await http.post(
+      Uri.parse(_baseUrl),
+      headers: {
+        'Authorization': 'Bearer $_apiKey',
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://academon.local',
+        'X-Title': 'Academon Study Fallback',
+      },
+      body: jsonEncode({
+        'model': _model,
+        'messages': [
+          {'role': 'system', 'content': systemPrompt},
+          {'role': 'user', 'content': userPrompt},
+        ],
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Fallback API failed: ${response.statusCode} ${response.body}');
+    }
+
+    final decoded = jsonDecode(response.body);
+    String? content;
+    if (decoded is Map<String, dynamic>) {
+      final choices = decoded['choices'];
+      if (choices is List && choices.isNotEmpty) {
+        final firstChoice = choices.first;
+        if (firstChoice is Map<String, dynamic>) {
+          final message = firstChoice['message'];
+          if (message is Map<String, dynamic>) {
+            final maybeContent = message['content'];
+            if (maybeContent is String) {
+              content = maybeContent;
+            } else if (maybeContent is List) {
+              // Some OpenRouter-compatible models return content blocks.
+              for (final block in maybeContent) {
+                if (block is Map<String, dynamic> && block['type'] == 'text') {
+                  final text = block['text'];
+                  if (text is String && text.trim().isNotEmpty) {
+                    content = text;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (content is! String || content.trim().isEmpty) {
+      throw Exception('Fallback API returned an empty response.');
+    }
+
+    return content.trim();
+  }
+
+  static Map<String, dynamic> _parseJsonObject(String raw) {
+    final normalized = _extractJsonPayload(raw);
+    final decoded = jsonDecode(normalized);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Fallback flashcard response is not a JSON object.');
+    }
+    return decoded;
+  }
+
+  static List<dynamic> _parseReviewerModules(String raw) {
+    final normalized = _extractJsonPayload(raw);
+    final decoded = jsonDecode(normalized);
+    if (decoded is List) {
+      return decoded;
+    }
+    if (decoded is Map<String, dynamic>) {
+      final modules = decoded['modules'] ?? decoded['reviewer'] ?? decoded['sections'];
+      if (modules is List) {
+        return modules;
+      }
+    }
+    throw Exception('Fallback reviewer response is not a supported JSON format.');
+  }
+
+  static String _extractJsonPayload(String raw) {
+    final trimmed = raw.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      return trimmed;
+    }
+
+    final blockMatch = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```').firstMatch(trimmed);
+    if (blockMatch != null) {
+      return blockMatch.group(1)!.trim();
+    }
+
+    final objectStart = trimmed.indexOf('{');
+    final objectEnd = trimmed.lastIndexOf('}');
+    if (objectStart >= 0 && objectEnd > objectStart) {
+      return trimmed.substring(objectStart, objectEnd + 1);
+    }
+
+    final arrayStart = trimmed.indexOf('[');
+    final arrayEnd = trimmed.lastIndexOf(']');
+    if (arrayStart >= 0 && arrayEnd > arrayStart) {
+      return trimmed.substring(arrayStart, arrayEnd + 1);
+    }
+
+    throw Exception('Unable to locate JSON payload in fallback response.');
+  }
+}

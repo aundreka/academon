@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/services/xp_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
@@ -33,6 +34,8 @@ class FocusTabPanel extends StatefulWidget {
 }
 
 class _FocusTabPanelState extends State<FocusTabPanel> {
+  final XpService _xpService = const XpService();
+
   static const int _breakSecondsTotal = 5 * 60;
   static const int _minDuration = 5;
   static const int _maxDuration = 90;
@@ -45,6 +48,7 @@ class _FocusTabPanelState extends State<FocusTabPanel> {
   bool _isRunning = false;
   bool _isBreak = false;
   bool _sessionDone = false;
+  bool _xpGrantedForSession = false;
 
   Timer? _timer;
 
@@ -83,6 +87,7 @@ class _FocusTabPanelState extends State<FocusTabPanel> {
             _isRunning = false;
             _sessionDone = true;
             _timer?.cancel();
+            _awardFocusXp();
           } else {
             _breakSecondsLeft--;
           }
@@ -126,6 +131,7 @@ class _FocusTabPanelState extends State<FocusTabPanel> {
       _isRunning = false;
       _sessionDone = true;
     });
+    _awardFocusXp();
   }
 
   void _reset() {
@@ -135,9 +141,20 @@ class _FocusTabPanelState extends State<FocusTabPanel> {
       _isRunning = false;
       _isBreak = false;
       _sessionDone = false;
+      _xpGrantedForSession = false;
       _secondsLeft = _durationMinutes * 60;
       _breakSecondsLeft = _breakSecondsTotal;
     });
+  }
+
+  Future<void> _awardFocusXp() async {
+    if (_xpGrantedForSession) return;
+    _xpGrantedForSession = true;
+    try {
+      await _xpService.addXp(XpService.focusXp);
+    } catch (_) {
+      _xpGrantedForSession = false;
+    }
   }
 
   String _format(int seconds) {

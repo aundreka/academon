@@ -3,7 +3,9 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/services/n8n_service.dart';
+import '../../core/services/study_persistence_service.dart';
+import '../../core/services/study_generation_service.dart';
+import '../../core/services/xp_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
@@ -35,6 +37,12 @@ class FlashcardsTabPanel extends StatefulWidget {
 }
 
 class _FlashcardsTabPanelState extends State<FlashcardsTabPanel> {
+  final XpService _xpService = const XpService();
+  final StudyPersistenceService _studyPersistenceService =
+      const StudyPersistenceService();
+  final StudyGenerationService _studyGenerationService =
+      const StudyGenerationService();
+
   Uint8List? _pdfBytes;
   String? _pdfName;
   bool _isLoading = false;
@@ -76,7 +84,16 @@ class _FlashcardsTabPanelState extends State<FlashcardsTabPanel> {
     });
 
     try {
-      final cards = await N8nService.generateFlashcards(_pdfBytes!);
+      final cards = await _studyGenerationService.generateFlashcards(_pdfBytes!);
+      await _xpService.addXp(XpService.flashcardXp);
+      try {
+        await _studyPersistenceService.saveFlashcardsFromUpload(
+          sourceName: _pdfName!,
+          cards: cards,
+        );
+      } catch (_) {
+        // Keep generated data usable even if DB migration is not applied yet.
+      }
       setState(() {
         _flashcards = cards;
         _activeIndex = 0;

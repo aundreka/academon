@@ -3,7 +3,9 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/services/n8n_service.dart';
+import '../../core/services/study_persistence_service.dart';
+import '../../core/services/study_generation_service.dart';
+import '../../core/services/xp_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
@@ -35,6 +37,12 @@ class ReviewerTabPanel extends StatefulWidget {
 }
 
 class _ReviewerTabPanelState extends State<ReviewerTabPanel> {
+  final XpService _xpService = const XpService();
+  final StudyPersistenceService _studyPersistenceService =
+      const StudyPersistenceService();
+  final StudyGenerationService _studyGenerationService =
+      const StudyGenerationService();
+
   Uint8List? _pdfBytes;
   String? _pdfName;
   bool _isLoading = false;
@@ -72,15 +80,36 @@ class _ReviewerTabPanelState extends State<ReviewerTabPanel> {
     });
 
     try {
-      final modules = await N8nService.uploadSyllabus(_pdfBytes!, _pdfName!);
+      final modules = await _studyGenerationService.generateReviewer(
+        _pdfBytes!,
+        _pdfName!,
+      );
+      await _xpService.addXp(XpService.reviewerXp);
+      try {
+        await _studyPersistenceService.saveReviewerFromUpload(
+          sourceName: _pdfName!,
+          modules: modules,
+        );
+      } catch (_) {
+        // Keep generated data usable even if DB migration is not applied yet.
+      }
       setState(() => _modules = modules);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = _friendlyError(e.toString()));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  String _friendlyError(String raw) {
+    final message = raw.replaceFirst('Exception: ', '').trim();
+    if (message.contains('Both generation paths failed')) {
+      return 'Generation failed on both n8n and AI fallback. '
+          'Please try another PDF or retry in a moment.\n\nDetails:\n$message';
+    }
+    return message;
   }
 
   @override
