@@ -1,10 +1,13 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/services/n8n_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
 import '../../core/widgets/ui/topnav.dart';
-import '../../app_shell.dart';
 
 class ReviewerScreen extends StatelessWidget {
   const ReviewerScreen({super.key});
@@ -25,8 +28,61 @@ class ReviewerScreen extends StatelessWidget {
   }
 }
 
-class ReviewerTabPanel extends StatelessWidget {
+class ReviewerTabPanel extends StatefulWidget {
   const ReviewerTabPanel({super.key});
+
+  @override
+  State<ReviewerTabPanel> createState() => _ReviewerTabPanelState();
+}
+
+class _ReviewerTabPanelState extends State<ReviewerTabPanel> {
+  Uint8List? _pdfBytes;
+  String? _pdfName;
+  bool _isLoading = false;
+  String? _error;
+  List<Map<String, dynamic>> _modules = [];
+
+  Future<void> _pickPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty || result.files.single.bytes == null) {
+      return;
+    }
+
+    setState(() {
+      _pdfBytes = result.files.single.bytes;
+      _pdfName = result.files.single.name;
+      _modules = [];
+      _error = null;
+    });
+  }
+
+  Future<void> _generateReviewer() async {
+    if (_pdfBytes == null || _pdfName == null) {
+      setState(() => _error = 'Please upload a PDF first.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final modules = await N8nService.uploadSyllabus(_pdfBytes!, _pdfName!);
+      setState(() => _modules = modules);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,18 +130,32 @@ class ReviewerTabPanel extends StatelessWidget {
   List<Widget> _content() => [
         _actionCard(
           title: '1. Upload PDF',
-          subtitle: 'Choose the document you want to review.',
+          subtitle: _pdfName == null
+              ? 'Choose the document you want to review.'
+              : 'Selected: $_pdfName',
           buttonText: 'Choose PDF',
           icon: Icons.upload_file_rounded,
+          onTap: _isLoading ? null : _pickPdf,
         ),
         const SizedBox(height: AppSpacing.md),
         _actionCard(
           title: '2. Generate Reviewer',
           subtitle: 'Create section-by-section reviewer notes from your PDF.',
-          buttonText: 'Generate Reviewer',
+          buttonText: _isLoading ? 'Generating...' : 'Generate Reviewer',
           icon: Icons.auto_awesome_rounded,
           emphasize: true,
+          onTap: _isLoading ? null : _generateReviewer,
         ),
+        if (_error != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            _error!,
+            style: AppTextStyles.body.copyWith(
+              color: Colors.redAccent,
+              fontSize: 12,
+            ),
+          ),
+        ],
         const SizedBox(height: AppSpacing.md),
         _generatedSection(),
       ];
@@ -95,6 +165,7 @@ class ReviewerTabPanel extends StatelessWidget {
     required String subtitle,
     required String buttonText,
     required IconData icon,
+    required VoidCallback? onTap,
     bool emphasize = false,
   }) {
     return Container(
@@ -118,30 +189,37 @@ class ReviewerTabPanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(subtitle, style: AppTextStyles.body.copyWith(fontSize: 12)),
           const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withOpacity(0.9),
-                  AppColors.accent.withOpacity(0.75),
-                ],
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: AppColors.textPrimary, size: 18),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  buttonText,
-                  style: AppTextStyles.button.copyWith(fontSize: 13),
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Opacity(
+              opacity: onTap == null ? 0.6 : 1,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
                 ),
-              ],
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withOpacity(0.9),
+                      AppColors.accent.withOpacity(0.75),
+                    ],
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, color: AppColors.textPrimary, size: 18),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      buttonText,
+                      style: AppTextStyles.button.copyWith(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -178,13 +256,17 @@ class ReviewerTabPanel extends StatelessWidget {
               Text(title, style: AppTextStyles.button.copyWith(fontSize: 13)),
               const SizedBox(height: AppSpacing.xs),
               Text(summary, style: AppTextStyles.body.copyWith(fontSize: 12)),
-              const SizedBox(height: AppSpacing.xs),
-              ...points.map(
-                (p) => Text('- $p', style: AppTextStyles.body.copyWith(fontSize: 12)),
-              ),
+              if (points.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                ...points.map(
+                  (p) => Text('- $p', style: AppTextStyles.body.copyWith(fontSize: 12)),
+                ),
+              ],
             ],
           ),
         );
+
+    final hasData = _modules.isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -203,23 +285,40 @@ class ReviewerTabPanel extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Preview only. Generated reviewer content appears here.',
+            hasData
+                ? '${_modules.length} section(s) generated.'
+                : 'Generated reviewer content appears here.',
             style: AppTextStyles.body.copyWith(fontSize: 12),
           ),
           const SizedBox(height: AppSpacing.sm),
-          section(
-            1,
-            'Core Concepts',
-            'A concise summary of the section appears here after generation.',
-            ['Key point one from this section.', 'Key point two from this section.'],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          section(
-            2,
-            'Applications',
-            'Another section summary card to preview reviewer layout.',
-            ['First practical takeaway.', 'Second practical takeaway.'],
-          ),
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (!hasData)
+            section(
+              1,
+              'No reviewer yet',
+              'Upload a PDF and tap Generate Reviewer to get modules.',
+              const [],
+            )
+          else
+            ...List.generate(_modules.length, (index) {
+              final item = _modules[index];
+              final title = '${item['title'] ?? 'Module ${index + 1}'}';
+              final material = '${item['material'] ?? item['summary'] ?? ''}';
+              final quiz = item['quiz'];
+              final points = quiz is List
+                  ? quiz.map((q) => '$q').toList()
+                  : quiz is Map
+                      ? quiz.values.map((q) => '$q').toList()
+                      : <String>[];
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == _modules.length - 1 ? 0 : AppSpacing.sm,
+                ),
+                child: section(index + 1, title, material, points),
+              );
+            }),
         ],
       ),
     );
