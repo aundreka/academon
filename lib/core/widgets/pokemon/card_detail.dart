@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/pokemon.dart';
@@ -45,63 +46,24 @@ class PokemonCardDetail extends StatelessWidget {
         ],
       ),
       child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _PlayableCard(
-              pokemon: pokemon,
-              palette: palette,
-              normalizedAssetPath: _normalizedAssetPath(pokemon.imagePath),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Description',
-              style: AppTextStyles.title.copyWith(fontSize: 18),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              pokemon.description,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textPrimary,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Abilities',
-              style: AppTextStyles.title.copyWith(fontSize: 18),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (pokemon.abilities.isEmpty)
-              Text(
-                'No abilities listed.',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              )
-            else
-              Column(
-                children: pokemon.abilities
-                    .map(
-                      (ability) => Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                        child: _AbilityTile(
-                          name: ability.name,
-                          type: ability.type,
-                          description: ability.description,
-                          palette: palette,
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-          ],
+        child: _PlayableCard(
+          pokemon: pokemon,
+          palette: palette,
+          normalizedAssetPath: _normalizedAssetPath(pokemon.imagePath),
         ),
       ),
     );
   }
 
   String _normalizedAssetPath(String path) {
+    if (path.startsWith('assets/')) {
+      return path;
+    }
+
+    if (path.startsWith('pokemons/')) {
+      return 'assets/$path';
+    }
+
     if (path.startsWith('images/')) {
       return path;
     }
@@ -165,6 +127,14 @@ class PokemonCardDetail extends StatelessWidget {
           shadow: Color(0xFF582714),
           soft: Color(0xFFFFE5D4),
         );
+      case 'ghost':
+        return const _TypePalette(
+          primary: Color(0xFF8D7BFF),
+          secondary: Color(0xFF43358E),
+          accent: Color(0xFFD6CEFF),
+          shadow: Color(0xFF251A58),
+          soft: Color(0xFFE5E1FF),
+        );
       default:
         return const _TypePalette(
           primary: Color(0xFF6D9EFF),
@@ -175,6 +145,28 @@ class PokemonCardDetail extends StatelessWidget {
         );
     }
   }
+}
+
+Widget _buildPokemonImage(String path, String name) {
+  final fallback = Center(
+    child: Text(
+      name,
+      textAlign: TextAlign.center,
+      style: AppTextStyles.title.copyWith(fontSize: 20),
+    ),
+  );
+
+  return kIsWeb
+      ? Image.network(
+          path,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => fallback,
+        )
+      : Image.asset(
+          path,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => fallback,
+        );
 }
 
 class _PlayableCard extends StatelessWidget {
@@ -207,61 +199,28 @@ class _PlayableCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Text(
+              pokemon.name,
+              style: AppTextStyles.title.copyWith(
+                fontSize: 22,
+                color: palette.shadow,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        pokemon.name,
-                        style: AppTextStyles.title.copyWith(
-                          fontSize: 22,
-                          color: palette.shadow,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
-                        children: [
-                          _InfoChip(value: pokemon.type, color: palette.primary),
-                          _InfoChip(value: pokemon.rarity, color: palette.secondary),
-                          _InfoChip(
-                            value: 'Stage ${pokemon.evolution}',
-                            color: palette.shadow,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: palette.primary.withOpacity(0.16),
-                  ),
-                  child: Center(
-                    child: Text(
-                      pokemon.name.substring(0, 1).toUpperCase(),
-                      style: AppTextStyles.title.copyWith(
-                        fontSize: 28,
-                        color: palette.shadow,
-                      ),
-                    ),
-                  ),
-                ),
+                _InfoChip(value: pokemon.type, color: palette.primary),
+                _InfoChip(value: pokemon.rarity, color: palette.secondary),
+                _InfoChip(value: 'Stage ${pokemon.evolution}', color: palette.shadow),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
             ClipRRect(
               borderRadius: BorderRadius.circular(22),
               child: AspectRatio(
-                aspectRatio: 1.45,
+                aspectRatio: 1.35,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -278,11 +237,11 @@ class _PlayableCard extends StatelessWidget {
                       ),
                     ),
                     Positioned(
-                      top: -18,
+                      top: -20,
                       right: -12,
                       child: Container(
-                        width: 120,
-                        height: 120,
+                        width: 128,
+                        height: 128,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white.withOpacity(0.16),
@@ -291,18 +250,56 @@ class _PlayableCard extends StatelessWidget {
                     ),
                     Padding(
                       padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Image.asset(
-                        normalizedAssetPath,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Center(
-                            child: Text(
-                              pokemon.name,
-                              textAlign: TextAlign.center,
-                              style: AppTextStyles.title.copyWith(fontSize: 20),
-                            ),
-                          );
-                        },
+                      child: _buildPokemonImage(normalizedAssetPath, pokemon.name),
+                    ),
+                    Positioned(
+                      top: AppSpacing.md,
+                      left: AppSpacing.md,
+                      child: _OverlayStatsGroup(
+                        alignment: CrossAxisAlignment.start,
+                        tiles: [
+                          _OverlayStat(label: 'HP', value: '${pokemon.baseHp}'),
+                          _OverlayStat(label: 'ATK', value: '${pokemon.baseAttack}'),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      top: AppSpacing.md,
+                      right: AppSpacing.md,
+                      child: _OverlayStatsGroup(
+                        alignment: CrossAxisAlignment.end,
+                        tiles: [
+                          _OverlayStat(label: 'DEF', value: '${pokemon.baseDefense}'),
+                          _OverlayStat(label: 'SPD', value: '${pokemon.baseSpeed}'),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.0),
+                              Colors.black.withOpacity(0.68),
+                            ],
+                          ),
+                        ),
+                        child: Text(
+                          pokemon.description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.textPrimary,
+                            height: 1.35,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -310,10 +307,35 @@ class _PlayableCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            _StatsPanel(
-              pokemon: pokemon,
-              palette: palette,
+            Text(
+              'Abilities',
+              style: AppTextStyles.button.copyWith(
+                fontSize: 16,
+                color: palette.shadow,
+              ),
             ),
+            const SizedBox(height: AppSpacing.sm),
+            if (pokemon.abilities.isEmpty)
+              Text(
+                'No abilities listed.',
+                style: AppTextStyles.body.copyWith(color: palette.shadow),
+              )
+            else
+              Column(
+                children: pokemon.abilities
+                    .map(
+                      (ability) => Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: _AbilityTile(
+                          name: ability.name,
+                          type: ability.type,
+                          description: ability.description,
+                          palette: palette,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
           ],
         ),
       ),
@@ -352,112 +374,70 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-class _StatsPanel extends StatelessWidget {
-  final Pokemon pokemon;
-  final _TypePalette palette;
+class _OverlayStatsGroup extends StatelessWidget {
+  final CrossAxisAlignment alignment;
+  final List<_OverlayStat> tiles;
 
-  const _StatsPanel({
-    required this.pokemon,
-    required this.palette,
+  const _OverlayStatsGroup({
+    required this.alignment,
+    required this.tiles,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: palette.shadow.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _StatTile(
-                  label: 'HP',
-                  value: pokemon.baseHp,
-                  color: const Color(0xFFE85F5F),
+    return Column(
+      crossAxisAlignment: alignment,
+      children: tiles
+          .map(
+            (tile) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.28),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${tile.label} ',
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 10,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      TextSpan(
+                        text: tile.value,
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 10,
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _StatTile(
-                  label: 'ATK',
-                  value: pokemon.baseAttack,
-                  color: const Color(0xFFF1A545),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: _StatTile(
-                  label: 'DEF',
-                  value: pokemon.baseDefense,
-                  color: const Color(0xFF4CAEE8),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _StatTile(
-                  label: 'SPD',
-                  value: pokemon.baseSpeed,
-                  color: const Color(0xFF4BC973),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          )
+          .toList(),
     );
   }
 }
 
-class _StatTile extends StatelessWidget {
+class _OverlayStat {
   final String label;
-  final int value;
-  final Color color;
+  final String value;
 
-  const _StatTile({
+  const _OverlayStat({
     required this.label,
     required this.value,
-    required this.color,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.75),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: AppTextStyles.body.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '$value',
-            style: AppTextStyles.button.copyWith(
-              fontSize: 20,
-              color: const Color(0xFF111827),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _AbilityTile extends StatelessWidget {
@@ -479,31 +459,51 @@ class _AbilityTile extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
+        color: palette.shadow.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            name,
-            style: AppTextStyles.button.copyWith(fontSize: 16),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            type.toUpperCase(),
-            style: AppTextStyles.body.copyWith(
-              color: palette.accent,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: AppTextStyles.button.copyWith(
+                    fontSize: 16,
+                    color: palette.shadow,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.secondary.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  type.toUpperCase(),
+                  style: AppTextStyles.body.copyWith(
+                    color: palette.secondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             description,
             style: AppTextStyles.body.copyWith(
-              color: AppColors.textPrimary,
-              height: 1.4,
+              color: const Color(0xFF111827),
+              height: 1.35,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

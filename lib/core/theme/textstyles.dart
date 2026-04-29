@@ -11,7 +11,7 @@ class AppTextStyles {
 
   static const body = TextStyle(
     fontFamily: 'Quicksand',
-    fontSize: 14,
+    fontSize: 12,
     color: AppColors.textSecondary,
   );
 

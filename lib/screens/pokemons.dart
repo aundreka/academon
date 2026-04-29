@@ -24,10 +24,8 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
   late final List<_PokemonInventoryEntry> _entries;
   late final List<_PokemonInventoryEntry> _battleDeck;
   late final List<String> _typeFilters;
-  final TextEditingController _searchController = TextEditingController();
   String _selectedTypeFilter = _allFilter;
   _SortMode _sortMode = _SortMode.rarity;
-  String _searchQuery = '';
 
   @override
   void initState() {
@@ -40,12 +38,6 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
         for (final entry in _entries) _primaryType(entry.pokemon.type),
       },
     ];
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   @override
@@ -80,81 +72,135 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
   Widget _buildBattleDeckSection() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF151B31),
-            Color(0xFF101A32),
-            Color(0xFF1A1033),
+            AppColors.primary,
+            const Color(0xFF2D8BE0),
+            const Color(0xFF1B5FA5),
           ],
         ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0A091A).withOpacity(0.42),
+            color: AppColors.primary.withOpacity(0.34),
             blurRadius: 30,
             offset: const Offset(0, 16),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Battle Deck',
-                style: AppTextStyles.title.copyWith(fontSize: 22),
-              ),
-              const Spacer(),
-              Text(
-                'Edit',
-                style: AppTextStyles.button.copyWith(
-                  fontSize: 14,
-                  color: AppColors.accent,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -36,
+              left: -28,
+              child: Container(
+                width: 160,
+                height: 160,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.12),
                 ),
               ),
-              const SizedBox(width: AppSpacing.xs),
-              Icon(
-                Icons.edit_rounded,
-                color: AppColors.accent,
-                size: 18,
+            ),
+            Positioned(
+              bottom: -50,
+              right: -18,
+              child: Container(
+                width: 170,
+                height: 170,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withOpacity(0.08),
+                ),
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              const spacing = AppSpacing.sm;
-              final cardWidth =
-                  (constraints.maxWidth - (spacing * (_battleDeck.length - 1))) /
-                      _battleDeck.length;
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withOpacity(0.08),
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.08),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _DeckTexturePainter(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Battle Deck',
+                        style: AppTextStyles.title.copyWith(fontSize: 18),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Edit',
+                        style: AppTextStyles.button.copyWith(
+                          fontSize: 14,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Icon(
+                        Icons.edit_rounded,
+                        color: AppColors.accent,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const spacing = AppSpacing.sm;
+                      final cardWidth = (constraints.maxWidth -
+                              (spacing * (_battleDeck.length - 1))) /
+                          _battleDeck.length;
 
-              return Row(
-                children: List.generate(_battleDeck.length, (index) {
-                  final entry = _battleDeck[index];
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      right: index == _battleDeck.length - 1 ? 0 : spacing,
-                    ),
-                    child: PokemonCard(
-                      pokemon: entry.pokemon,
-                      level: entry.level,
-                      xp: entry.xp,
-                      xpGoal: entry.xpGoal,
-                      width: cardWidth,
-                      height: cardWidth * 1.56,
-                      onTap: () => _showPokemonDetails(entry.pokemon),
-                    ),
-                  );
-                }),
-              );
-            },
-          ),
-        ],
+                      return Row(
+                        children: List.generate(_battleDeck.length, (index) {
+                          final entry = _battleDeck[index];
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              right: index == _battleDeck.length - 1 ? 0 : spacing,
+                            ),
+                            child: PokemonCard(
+                              pokemon: entry.pokemon,
+                              level: entry.level,
+                              xp: entry.xp,
+                              xpGoal: entry.xpGoal,
+                              width: cardWidth,
+                              height: cardWidth * 1.56,
+                              onTap: () => _showPokemonDetails(entry.pokemon),
+                            ),
+                          );
+                        }),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -188,139 +234,82 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: _SortChip(
-                  label: 'By Rarity',
-                  selected: _sortMode == _SortMode.rarity,
-                  onTap: () {
-                    setState(() {
-                      _sortMode = _SortMode.rarity;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _SortChip(
-                  label: 'By Name',
-                  selected: _sortMode == _SortMode.name,
-                  onTap: () {
-                    setState(() {
-                      _sortMode = _SortMode.name;
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.background.withOpacity(0.32),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.trim().toLowerCase();
-                });
-              },
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Search by name',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                prefixIcon: const Icon(
-                  Icons.search_rounded,
-                  color: AppColors.textSecondary,
-                ),
-                suffixIcon: _searchQuery.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: 14,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
           SizedBox(
             height: 40,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _typeFilters.length,
-              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
-              itemBuilder: (context, index) {
-                final filter = _typeFilters[index];
-                final isSelected = filter == _selectedTypeFilter;
-                final filterColor = _filterColor(filter);
-
-                return Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () {
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 144,
+                  child: _SortDropdown(
+                    value: _sortMode,
+                    onChanged: (value) {
+                      if (value == null) return;
                       setState(() {
-                        _selectedTypeFilter = filter;
+                        _sortMode = value;
                       });
                     },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? filterColor.withOpacity(0.22)
-                            : AppColors.background.withOpacity(0.28),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: filterColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            filter,
-                            style: AppTextStyles.body.copyWith(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
-                );
-              },
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _typeFilters.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+                    itemBuilder: (context, index) {
+                      final filter = _typeFilters[index];
+                      final isSelected = filter == _selectedTypeFilter;
+                      final filterColor = _filterColor(filter);
+
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () {
+                            setState(() {
+                              _selectedTypeFilter = filter;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? filterColor.withOpacity(0.22)
+                                  : AppColors.background.withOpacity(0.28),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: filterColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Text(
+                                  filter,
+                                  style: AppTextStyles.body.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -438,9 +427,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
     final filtered = _entries.where((entry) {
       final matchesType = _selectedTypeFilter == _allFilter ||
           _primaryType(entry.pokemon.type) == _selectedTypeFilter;
-      final matchesName = _searchQuery.isEmpty ||
-          entry.pokemon.name.toLowerCase().contains(_searchQuery);
-      return matchesType && matchesName;
+      return matchesType;
     }).toList();
 
     filtered.sort((a, b) {
@@ -531,6 +518,8 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
         return const Color(0xFFFFD84D);
       case 'psychic':
         return const Color(0xFFFF6FAE);
+      case 'ghost':
+        return const Color(0xFF8D7BFF);
       case 'fighting':
         return const Color(0xFFE07A45);
       case 'all':
@@ -540,48 +529,69 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
   }
 }
 
-class _SortChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+class _SortDropdown extends StatelessWidget {
+  final _SortMode value;
+  final ValueChanged<_SortMode?> onChanged;
 
-  const _SortChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
+  const _SortDropdown({
+    required this.value,
+    required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.background.withOpacity(0.28),
         borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<_SortMode>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: AppColors.card,
+          iconEnabledColor: AppColors.textPrimary,
+          style: AppTextStyles.body.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
           ),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppColors.primary.withOpacity(0.18)
-                : AppColors.background.withOpacity(0.28),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
+          onChanged: onChanged,
+          items: const [
+            DropdownMenuItem(
+              value: _SortMode.rarity,
+              child: Text('By Rarity'),
             ),
-          ),
+            DropdownMenuItem(
+              value: _SortMode.name,
+              child: Text('By Name'),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _DeckTexturePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.06)
+      ..strokeWidth = 1;
+
+    const gap = 18.0;
+    for (double x = -size.height; x < size.width; x += gap) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _PokemonInventoryEntry {
