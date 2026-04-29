@@ -6,6 +6,7 @@ import '../core/theme/textstyles.dart';
 import '../core/widgets/ui/topnav.dart';
 import 'study/flashcard.dart';
 import 'study/focus.dart';
+import 'study/library.dart';
 import 'study/reviewer.dart';
 
 class StudyScreen extends StatefulWidget {
@@ -53,6 +54,16 @@ class _StudyScreenState extends State<StudyScreen> {
       difficulty: 'Hard',
       icon: Icons.center_focus_strong_outlined,
       glowColor: Color(0xFF00E5FF),
+    ),
+    _StudyTabItem(
+      label: 'Library Vault',
+      subtitle: 'Browse all your saved study modules.',
+      reward: 'Collection',
+      objective: 'Review your generated content',
+      progressLabel: 'Saved modules',
+      difficulty: 'Archive',
+      icon: Icons.auto_stories_rounded,
+      glowColor: Color(0xFF37D7A5),
     ),
   ];
 
@@ -204,164 +215,168 @@ class _StudyScreenState extends State<StudyScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         Expanded(
-          child: Column(
-            children: List.generate(_tabs.length, (index) {
+          child: ListView.separated(
+            itemCount: _tabs.length,
+            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+            itemBuilder: (context, index) {
               final tab = _tabs[index];
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == _tabs.length - 1 ? 0 : AppSpacing.sm,
+              return InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  setState(() => _selectedTabIndex = index);
+                },
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 92),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.md,
                   ),
-                  child: InkWell(
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    onTap: () {
-                      setState(() => _selectedTabIndex = index);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.md,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        tab.glowColor.withOpacity(0.22),
+                        AppColors.background.withOpacity(0.45),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: tab.glowColor.withOpacity(0.55),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: tab.glowColor.withOpacity(0.22),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            tab.glowColor.withOpacity(0.22),
-                            AppColors.background.withOpacity(0.45),
-                          ],
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: tab.glowColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        border: Border.all(
-                          color: tab.glowColor.withOpacity(0.55),
+                        child: Icon(
+                          tab.icon,
+                          color: AppColors.textPrimary,
+                          size: 20,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: tab.glowColor.withOpacity(0.22),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: tab.glowColor.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              tab.label,
+                              style: AppTextStyles.button.copyWith(
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            child: Icon(
-                              tab.icon,
-                              color: AppColors.textPrimary,
-                              size: 20,
+                            const SizedBox(height: 2),
+                            Text(
+                              tab.subtitle,
+                              style: AppTextStyles.body.copyWith(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            const SizedBox(height: 6),
+                            Row(
                               children: [
-                                Text(
-                                  tab.label,
-                                  style: AppTextStyles.button.copyWith(
-                                    fontSize: 14,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.xs,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.background.withOpacity(0.35),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    tab.difficulty,
+                                    style: AppTextStyles.body.copyWith(
+                                      fontSize: 9,
+                                      color: AppColors.textSecondary,
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  tab.subtitle,
-                                  style: AppTextStyles.body.copyWith(
-                                    fontSize: 11,
-                                    color: AppColors.textSecondary,
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    tab.objective,
+                                    style: AppTextStyles.body.copyWith(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: AppSpacing.xs,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.background.withOpacity(0.35),
-                                        borderRadius: BorderRadius.circular(999),
-                                      ),
-                                      child: Text(
-                                        tab.difficulty,
-                                        style: AppTextStyles.body.copyWith(
-                                          fontSize: 9,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        tab.objective,
-                                        style: AppTextStyles.body.copyWith(
-                                          fontSize: 10,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ],
                             ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.background.withOpacity(0.45),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: tab.glowColor.withOpacity(0.45),
+                              ),
+                            ),
+                            child: Text(
+                              tab.reward,
+                              style: AppTextStyles.body.copyWith(
+                                fontSize: 10,
+                                color: AppColors.accent,
+                              ),
+                            ),
                           ),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.sm,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background.withOpacity(0.45),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(
-                                    color: tab.glowColor.withOpacity(0.45),
-                                  ),
-                                ),
-                                child: Text(
-                                  tab.reward,
-                                  style: AppTextStyles.body.copyWith(
-                                    fontSize: 10,
-                                    color: AppColors.accent,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                tab.progressLabel,
-                                style: AppTextStyles.body.copyWith(
-                                  fontSize: 9,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                size: 14,
-                                color: AppColors.textSecondary,
-                              ),
-                            ],
+                          const SizedBox(height: 4),
+                          Text(
+                            tab.progressLabel,
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 9,
+                              color: AppColors.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: AppColors.textSecondary,
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
                 ),
               );
-            }),
+            },
           ),
         ),
       ],
@@ -416,7 +431,8 @@ class _StudyScreenState extends State<StudyScreen> {
           child: switch (index) {
             0 => const ReviewerTabPanel(),
             1 => const FlashcardsTabPanel(),
-            _ => const FocusTabPanel(),
+            2 => const FocusTabPanel(),
+            _ => const LibraryTabPanel(),
           },
         ),
       ],
