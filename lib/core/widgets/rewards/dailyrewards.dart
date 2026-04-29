@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../models/reward.dart';
 import '../../theme/spacing.dart';
 import '../../theme/textstyles.dart';
-import 'reward.dart';
 
 class DailyRewardsCard extends StatelessWidget {
   final int daysPlayed;
@@ -67,27 +66,39 @@ class DailyRewardsCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           LayoutBuilder(
             builder: (context, constraints) {
-              final cardWidth = math.max(96.0, (constraints.maxWidth - (AppSpacing.sm * 3)) / 4);
+              final columnCount = math.max(
+                2,
+                math.min(4, (constraints.maxWidth / 120).floor()),
+              );
+              final rowCount = (rewards.length / columnCount).ceil();
+              final gridHeight =
+                  (rowCount * _DailyRewardTile.tileHeight) +
+                  (math.max(0, rowCount - 1) * AppSpacing.sm);
 
-              return Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (var i = 0; i < rewards.length; i++)
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DailyRewardTile(
-                        dayNumber: i + 1,
-                        reward: rewards[i],
-                        isUnlocked: i <= availableDayIndex,
-                        isClaimed: i <= claimedDayIndex,
-                        isToday: i == availableDayIndex && i > claimedDayIndex,
-                        onTap: i == availableDayIndex && i > claimedDayIndex
-                            ? () => onClaim(i, rewards[i])
-                            : null,
-                      ),
-                    ),
-                ],
+              return SizedBox(
+                height: gridHeight,
+                child: GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columnCount,
+                    crossAxisSpacing: AppSpacing.sm,
+                    mainAxisSpacing: AppSpacing.sm,
+                    mainAxisExtent: _DailyRewardTile.tileHeight,
+                  ),
+                  itemCount: rewards.length,
+                  itemBuilder: (context, index) {
+                    return _DailyRewardTile(
+                      dayNumber: index + 1,
+                      reward: rewards[index],
+                      isUnlocked: index <= availableDayIndex,
+                      isClaimed: index <= claimedDayIndex,
+                      isToday: index == availableDayIndex && index > claimedDayIndex,
+                      onTap: index == availableDayIndex && index > claimedDayIndex
+                          ? () => onClaim(index, rewards[index])
+                          : null,
+                    );
+                  },
+                ),
               );
             },
           ),
@@ -129,6 +140,8 @@ class DailyRewardsDialog extends StatelessWidget {
 }
 
 class _DailyRewardTile extends StatelessWidget {
+  static const double tileHeight = 170;
+
   final int dayNumber;
   final Reward reward;
   final bool isUnlocked;
@@ -187,11 +200,11 @@ class _DailyRewardTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
-              RewardSummaryChips(
+              _DailyRewardDetails(
                 reward: reward,
                 lightMode: isClaimed || isToday,
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const Spacer(),
               Text(
                 isClaimed
                     ? 'Claimed'
@@ -209,6 +222,89 @@ class _DailyRewardTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DailyRewardDetails extends StatelessWidget {
+  final Reward reward;
+  final bool lightMode;
+
+  const _DailyRewardDetails({
+    required this.reward,
+    required this.lightMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rewards = <Widget>[
+      if (reward.coins > 0)
+        _DailyRewardValue(
+          icon: Icons.monetization_on_rounded,
+          value: '${reward.coins}',
+          color: lightMode ? const Color(0xFF8C6500) : const Color(0xFFFFD15C),
+        ),
+      if (reward.xp > 0)
+        _DailyRewardValue(
+          icon: Icons.bolt_rounded,
+          value: '${reward.xp}',
+          color: lightMode ? const Color(0xFF0F5868) : const Color(0xFF7CEBFF),
+        ),
+      if (reward.diamonds > 0)
+        _DailyRewardValue(
+          icon: Icons.diamond_rounded,
+          value: '${reward.diamonds}',
+          color: lightMode ? const Color(0xFF623D8E) : const Color(0xFFFFA0F4),
+        ),
+      if (reward.items.isNotEmpty)
+        _DailyRewardValue(
+          icon: Icons.inventory_2_rounded,
+          value: '${reward.items.length}',
+          color: lightMode ? const Color(0xFF1F6A45) : const Color(0xFFA5FFCA),
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < rewards.length; i++) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.xs),
+          rewards[i],
+        ],
+      ],
+    );
+  }
+}
+
+class _DailyRewardValue extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final Color color;
+
+  const _DailyRewardValue({
+    required this.icon,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: AppSpacing.xs),
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.body.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

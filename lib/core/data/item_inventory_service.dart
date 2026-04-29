@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/item.dart';
 import '../models/pokemon.dart';
+import '../models/reward.dart';
 import 'pokemons.dart';
 import 'shop_catalog.dart';
 
@@ -91,6 +92,57 @@ class ItemInventoryService {
   final SupabaseClient _supabase;
 
   const ItemInventoryService(this._supabase);
+
+  Future<void> grantReward(Reward reward) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw Exception('Please log in before claiming rewards.');
+    }
+
+    if (reward.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    final stats = await _supabase
+        .from('user_stats')
+        .select('xp, coins, diamonds')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    final currentXp = _asInt(stats?['xp']);
+    final currentCoins = _asInt(stats?['coins']);
+    final currentDiamonds = _asInt(stats?['diamonds']);
+    final nextStats = <String, dynamic>{
+      'updated_at': now,
+    };
+
+    if (reward.xp > 0) {
+      nextStats['xp'] = currentXp + reward.xp;
+    }
+    if (reward.coins > 0) {
+      nextStats['coins'] = currentCoins + reward.coins;
+    }
+    if (reward.diamonds > 0) {
+      nextStats['diamonds'] = currentDiamonds + reward.diamonds;
+    }
+
+    if (stats == null) {
+      await _supabase.from('user_stats').insert({
+        'user_id': user.id,
+        'xp': nextStats['xp'] ?? 0,
+        'coins': nextStats['coins'] ?? 0,
+        'diamonds': nextStats['diamonds'] ?? 0,
+        'updated_at': now,
+      });
+    } else {
+      await _supabase.from('user_stats').update(nextStats).eq('user_id', user.id);
+    }
+
+    for (final item in reward.items) {
+      await _grantInventoryItem(userId: user.id, item: item, now: now);
+    }
+  }
 
   Future<List<OwnedInventoryItem>> fetchOwnedItems() async {
     final user = _supabase.auth.currentUser;
@@ -442,6 +494,50 @@ class ItemInventoryService {
     );
   }
 
+  Future<void> _grantInventoryItem({
+    required String userId,
+    required InventoryItem item,
+    required String now,
+  }) async {
+    if (item.itemType == InventoryItemType.egg) {
+      final activeEggRows = await _supabase
+          .from('user_egg_instances')
+          .select('id')
+          .eq('user_id', userId)
+          .filter('hatched_at', 'is', null);
+      if (activeEggRows.length >= 3) {
+        throw Exception('Only 3 eggs can hatch at the same time.');
+      }
+
+      await _supabase.from('user_egg_instances').insert({
+        'user_id': userId,
+        'inventory_item_id': item.id,
+        'subject_id': item.eggProgress?.subjectId,
+        'hatch_battle_requirement': item.eggProgress?.hatchBattleRequirement ?? 0,
+        'battles_completed': 0,
+        'hatch_duration_seconds': item.eggProgress?.hatchDuration?.inSeconds,
+        'egg_rarity': (item.eggRarity ?? EggRarity.common).storageValue,
+        'created_at': now,
+        'updated_at': now,
+      });
+      return;
+    }
+
+    final existing = await _supabase
+        .from('user_inventory')
+        .select('quantity')
+        .eq('user_id', userId)
+        .eq('item_id', item.id)
+        .maybeSingle();
+    final nextQuantity = ((existing?['quantity'] as int?) ?? 0) + item.quantity;
+
+    await _supabase.from('user_inventory').upsert({
+      'user_id': userId,
+      'item_id': item.id,
+      'quantity': nextQuantity,
+    }, onConflict: 'user_id,item_id');
+  }
+
   Future<InventoryActionResult> sellItem(OwnedInventoryItem ownedItem) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
@@ -480,20 +576,34 @@ class ItemInventoryService {
 
   Pokemon _pokemonForEgg(InventoryItem item) {
     final rarity = item.eggRarity ?? EggRarity.common;
-    final stageOne = starterCreatures.where((pokemon) => pokemon.evolution == 1);
+    final stageOne = starterCreatures
+        .where((pokemon) => pokemon.evolution == 1)
+        .toList(growable: false);
+    final roll = Random().nextDouble();
+    var threshold = 0.0;
+    var selectedPokemonRarity = rarity.hatchChances.first.pokemonRarity;
 
-    switch (rarity) {
-      case EggRarity.common:
-        return stageOne.firstWhere((pokemon) => pokemon.id == 'bulbasaur1');
-      case EggRarity.uncommon:
-        return stageOne.firstWhere((pokemon) => pokemon.id == 'abra1');
-      case EggRarity.rare:
-        return stageOne.firstWhere((pokemon) => pokemon.id == 'charmander1');
-      case EggRarity.ultraRare:
-        return stageOne.firstWhere((pokemon) => pokemon.id == 'oddish1');
-      case EggRarity.legendary:
-        return stageOne.firstWhere((pokemon) => pokemon.id == 'gastly1');
+    for (final chance in rarity.hatchChances) {
+      threshold += chance.probability;
+      if (roll <= threshold) {
+        selectedPokemonRarity = chance.pokemonRarity;
+        break;
+      }
     }
+
+    final pool = stageOne
+        .where(
+          (pokemon) =>
+              pokemon.rarity.toLowerCase() ==
+              selectedPokemonRarity.toLowerCase(),
+        )
+        .toList(growable: false);
+
+    if (pool.isEmpty) {
+      throw StateError('No stage one Pokemon found for $selectedPokemonRarity.');
+    }
+
+    return pool[Random().nextInt(pool.length)];
   }
 
   String _buildEggLabel({
@@ -605,5 +715,15 @@ class ItemInventoryService {
             )
           : null,
     );
+  }
+
+  int _asInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return 0;
   }
 }

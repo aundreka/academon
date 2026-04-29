@@ -5,7 +5,7 @@ import '../models/reward.dart';
 
 final InventoryItem commonQuestEgg = InventoryItem.egg(
   id: 'reward_egg_common',
-  name: 'Campus Egg',
+  name: 'Starter Egg',
   imagePath: 'assets/items/common_egg.png',
   rarity: EggRarity.common,
   eggProgress: const EggProgress(
@@ -16,7 +16,7 @@ final InventoryItem commonQuestEgg = InventoryItem.egg(
 
 final InventoryItem uncommonQuestEgg = InventoryItem.egg(
   id: 'reward_egg_uncommon',
-  name: 'Quiz Egg',
+  name: 'Mystic Egg',
   imagePath: 'assets/items/common_egg.png',
   rarity: EggRarity.uncommon,
   coinValue: 900,
@@ -29,7 +29,7 @@ final InventoryItem uncommonQuestEgg = InventoryItem.egg(
 
 final InventoryItem rareQuestEgg = InventoryItem.egg(
   id: 'reward_egg_rare',
-  name: 'Scholar Egg',
+  name: 'Arcane Egg',
   imagePath: 'assets/items/rare_egg.png',
   rarity: EggRarity.rare,
   coinValue: 1200,
@@ -42,7 +42,7 @@ final InventoryItem rareQuestEgg = InventoryItem.egg(
 
 final InventoryItem ultraRareQuestEgg = InventoryItem.egg(
   id: 'reward_egg_ultra_rare',
-  name: 'Prism Egg',
+  name: 'Celestial Egg',
   imagePath: 'assets/items/ultra_rare_egg.png',
   rarity: EggRarity.ultraRare,
   coinValue: 1800,

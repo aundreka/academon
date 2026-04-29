@@ -3,7 +3,7 @@ import '../models/item.dart';
 final List<InventoryItem> shopEggCatalog = [
   InventoryItem.egg(
     id: 'egg_common_general',
-    name: 'Common Egg',
+    name: 'Starter Egg',
     imagePath: 'assets/items/common_egg.png',
     rarity: EggRarity.common,
     coinValue: 750,
@@ -15,7 +15,7 @@ final List<InventoryItem> shopEggCatalog = [
   ),
   InventoryItem.egg(
     id: 'egg_uncommon_math',
-    name: 'Uncommon Egg',
+    name: 'Mystic Egg',
     imagePath: 'assets/items/uncommon_egg.png',
     rarity: EggRarity.uncommon,
     coinValue: 950,
@@ -26,20 +26,8 @@ final List<InventoryItem> shopEggCatalog = [
     ),
   ),
   InventoryItem.egg(
-    id: 'egg_rare_science',
-    name: 'Rare Egg',
-    imagePath: 'assets/items/rare_egg.png',
-    rarity: EggRarity.rare,
-    coinValue: 1200,
-    diamondValue: 12,
-    eggProgress: const EggProgress(
-      subjectId: 'Science',
-      hatchBattleRequirement: 5,
-    ),
-  ),
-  InventoryItem.egg(
     id: 'egg_ultra_rare_botany',
-    name: 'Ultra Rare Egg',
+    name: 'Celestial Egg',
     imagePath: 'assets/items/ultra_rare_egg.png',
     rarity: EggRarity.ultraRare,
     coinValue: 1800,
@@ -51,7 +39,7 @@ final List<InventoryItem> shopEggCatalog = [
   ),
   InventoryItem.egg(
     id: 'egg_legendary_history',
-    name: 'Legendary Egg',
+    name: 'Mythic Egg',
     imagePath: 'assets/items/legendary_egg.png',
     rarity: EggRarity.legendary,
     coinValue: 2400,

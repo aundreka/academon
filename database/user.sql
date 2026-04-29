@@ -152,6 +152,25 @@ create table user_egg_instances (
     check (battles_completed <= hatch_battle_requirement or hatch_battle_requirement = 0)
 );
 
+create table user_daily_reward_progress (
+  user_id uuid primary key references profiles(id) on delete cascade,
+  claimed_day_index int not null default -1
+    check (claimed_day_index >= -1 and claimed_day_index < 7),
+  updated_at timestamptz default now()
+);
+
+create table user_quest_state (
+  user_id uuid primary key references profiles(id) on delete cascade,
+  quest_ids text[] not null default '{}',
+  claimed_quest_ids text[] not null default '{}',
+  refreshed_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  constraint user_quest_state_claims_subset
+    check (quest_ids @> claimed_quest_ids),
+  constraint user_quest_state_max_visible_quests
+    check (cardinality(quest_ids) <= 3)
+);
+
 create or replace function public.enforce_max_active_egg_instances()
 returns trigger
 language plpgsql
@@ -283,6 +302,8 @@ alter table friends enable row level security;
 alter table inventory_items enable row level security;
 alter table user_inventory enable row level security;
 alter table user_egg_instances enable row level security;
+alter table user_daily_reward_progress enable row level security;
+alter table user_quest_state enable row level security;
 
 create policy "profiles_select_own"
 on profiles
@@ -391,6 +412,44 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+create policy "user_daily_reward_progress_select_own"
+on user_daily_reward_progress
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "user_daily_reward_progress_insert_own"
+on user_daily_reward_progress
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "user_daily_reward_progress_update_own"
+on user_daily_reward_progress
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+create policy "user_quest_state_select_own"
+on user_quest_state
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "user_quest_state_insert_own"
+on user_quest_state
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "user_quest_state_update_own"
+on user_quest_state
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
 insert into inventory_items (
   id,
   name,
@@ -471,7 +530,7 @@ values
   ),
   (
     'egg_common_general',
-    'Common Egg',
+    'Starter Egg',
     'egg',
     'assets/items/common_egg.png',
     'Hatches over time or after enough battles.',
@@ -497,7 +556,7 @@ values
   ),
   (
     'egg_uncommon_math',
-    'Uncommon Egg',
+    'Mystic Egg',
     'egg',
     'assets/items/uncommon_egg.png',
     'Hatches over time or after enough battles.',
@@ -522,34 +581,8 @@ values
     now()
   ),
   (
-    'egg_rare_science',
-    'Rare Egg',
-    'egg',
-    'assets/items/rare_egg.png',
-    'Hatches over time or after enough battles.',
-    1200,
-    12,
-    'progression',
-    'egg',
-    false,
-    true,
-    0,
-    null,
-    null,
-    'Science',
-    'rare',
-    5,
-    7200,
-    null,
-    null,
-    null,
-    null,
-    null,
-    now()
-  ),
-  (
     'egg_ultra_rare_botany',
-    'Ultra Rare Egg',
+    'Celestial Egg',
     'egg',
     'assets/items/ultra_rare_egg.png',
     'Hatches over time or after enough battles.',
@@ -575,7 +608,7 @@ values
   ),
   (
     'egg_legendary_history',
-    'Legendary Egg',
+    'Mythic Egg',
     'egg',
     'assets/items/legendary_egg.png',
     'Hatches over time or after enough battles.',
@@ -653,7 +686,7 @@ values
   ),
   (
     'reward_egg_common',
-    'Campus Egg',
+    'Starter Egg',
     'egg',
     'assets/items/common_egg.png',
     'Quest reward egg for General Knowledge progression.',
@@ -679,7 +712,7 @@ values
   ),
   (
     'reward_egg_uncommon',
-    'Quiz Egg',
+    'Mystic Egg',
     'egg',
     'assets/items/common_egg.png',
     'Quest reward egg for Literature progression.',
@@ -705,7 +738,7 @@ values
   ),
   (
     'reward_egg_rare',
-    'Scholar Egg',
+    'Arcane Egg',
     'egg',
     'assets/items/rare_egg.png',
     'Quest reward egg for Science progression.',
@@ -731,7 +764,7 @@ values
   ),
   (
     'reward_egg_ultra_rare',
-    'Prism Egg',
+    'Celestial Egg',
     'egg',
     'assets/items/ultra_rare_egg.png',
     'Quest reward egg for Botany progression.',

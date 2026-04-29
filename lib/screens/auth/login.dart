@@ -129,7 +129,22 @@ class _LoginScreenState extends State<LoginScreen> {
             fillColor: AppColors.card,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
+              borderSide: BorderSide(
+                color: AppColors.primary.withOpacity(0.2),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: AppColors.primary.withOpacity(0.2),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppColors.accent,
+                width: 1.5,
+              ),
             ),
           ),
         ),
@@ -150,7 +165,6 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: BoxDecoration(
                 color: AppColors.card,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.primary.withOpacity(0.2)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -158,15 +172,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   Image.asset(
                     _logoAsset,
                     height: 56,
-                  ),
-                  const SizedBox(height: 10),
-                  Text('Enter the Arena', style: AppTextStyles.title),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Login to continue your journey',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.textPrimary.withOpacity(0.7),
-                    ),
                   ),
                   const SizedBox(height: 24),
                   inputField(

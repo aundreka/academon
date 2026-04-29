@@ -89,6 +89,18 @@ EggRarity eggRarityFromString(String? value) {
   }
 }
 
+class EggHatchChance {
+  final String pokemonRarity;
+  final double probability;
+
+  const EggHatchChance({
+    required this.pokemonRarity,
+    required this.probability,
+  });
+
+  String get label => '${(probability * 100).round()}% $pokemonRarity';
+}
+
 extension EggRarityX on EggRarity {
   String get storageValue {
     switch (this) {
@@ -108,15 +120,41 @@ extension EggRarityX on EggRarity {
   String get label {
     switch (this) {
       case EggRarity.common:
-        return 'Common';
+        return 'Starter';
       case EggRarity.uncommon:
-        return 'Uncommon';
+        return 'Mystic';
       case EggRarity.rare:
-        return 'Rare';
+        return 'Arcane';
       case EggRarity.ultraRare:
-        return 'Ultra Rare';
+        return 'Celestial';
       case EggRarity.legendary:
-        return 'Legendary';
+        return 'Mythic';
+    }
+  }
+
+  List<EggHatchChance> get hatchChances {
+    switch (this) {
+      case EggRarity.common:
+        return const [
+          EggHatchChance(pokemonRarity: 'Common', probability: 1),
+        ];
+      case EggRarity.uncommon:
+        return const [
+          EggHatchChance(pokemonRarity: 'Uncommon', probability: 1),
+        ];
+      case EggRarity.rare:
+        return const [
+          EggHatchChance(pokemonRarity: 'Rare', probability: 1),
+        ];
+      case EggRarity.ultraRare:
+        return const [
+          EggHatchChance(pokemonRarity: 'Ultra Rare', probability: 1),
+        ];
+      case EggRarity.legendary:
+        return const [
+          EggHatchChance(pokemonRarity: 'Legendary', probability: 0.5),
+          EggHatchChance(pokemonRarity: 'Ultra Rare', probability: 0.5),
+        ];
     }
   }
 }

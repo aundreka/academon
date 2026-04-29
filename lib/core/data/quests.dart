@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../models/quest.dart';
 import '../models/reward.dart';
 import 'rewards.dart';
@@ -297,3 +299,23 @@ Quest(
   rarity: QuestRarity.legendary,
 ),
 ];
+
+List<Quest> pickRandomDailyQuests({
+  int count = 3,
+  Random? random,
+  Iterable<String> excludeIds = const [],
+}) {
+  final resolvedRandom = random ?? Random();
+  final excluded = excludeIds.toSet();
+  final available = dailyQuestCatalog
+      .where((quest) => !excluded.contains(quest.id))
+      .toList();
+
+  if (available.length <= count) {
+    available.shuffle(resolvedRandom);
+    return available;
+  }
+
+  available.shuffle(resolvedRandom);
+  return available.take(count).toList();
+}

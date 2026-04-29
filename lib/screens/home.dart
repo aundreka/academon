@@ -31,8 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   late final SupabaseClient _supabase;
   bool _loading = true;
   List<HatcheryEggEntry> _eggs = const [];
+  List<Quest> _activeQuests = const [];
   int _daysPlayed = 1;
-  int _playerLevel = 1;
   int _claimedDailyIndex = -1;
   final Set<String> _claimedQuestIds = <String>{};
   _ActiveModuleCardData? _activeModule;
@@ -57,12 +57,14 @@ class _HomeScreenState extends State<HomeScreen> {
         if (userId != null)
           _supabase
               .from('user_stats')
-              .select('level, streak')
+              .select('streak')
               .eq('user_id', userId)
               .maybeSingle()
         else
           Future<Map<String, dynamic>?>.value(null),
         _loadActiveModule(userId),
+        _loadQuestState(userId),
+        _loadClaimedDailyIndex(userId),
       ]);
 
       if (!mounted) {
@@ -71,12 +73,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final eggs = results[0] as List<HatcheryEggEntry>;
       final stats = results[1] as Map<String, dynamic>?;
+      final questState = results[3] as _QuestState;
+      final claimedDailyIndex = results[4] as int;
       final streak = (stats?['streak'] as int?) ?? 0;
 
       setState(() {
         _eggs = eggs;
-        _playerLevel = (stats?['level'] as int?) ?? 1;
+        _activeQuests = questState.quests;
+        _claimedQuestIds
+          ..clear()
+          ..addAll(questState.claimedQuestIds);
         _daysPlayed = math.max(streak, 1);
+        _claimedDailyIndex = claimedDailyIndex;
         _activeModule = results[2] as _ActiveModuleCardData?;
         _loading = false;
       });
@@ -136,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .limit(1);
 
       if (attempts.isNotEmpty) {
-        final attempt = attempts.first as Map<String, dynamic>;
+        final attempt = attempts.first;
         final accuracy = ((attempt['accuracy'] as num?) ?? 0).toDouble();
         progress = accuracy > 1 ? accuracy / 100 : accuracy;
       }
@@ -157,21 +165,88 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<Quest> get _featuredQuests {
-    if (dailyQuestCatalog.length <= 3) {
-      return dailyQuestCatalog;
-    }
-
-    final startIndex = (_daysPlayed + _playerLevel) % dailyQuestCatalog.length;
-    return List<Quest>.generate(
-      3,
-      (index) => dailyQuestCatalog[(startIndex + index) % dailyQuestCatalog.length],
-    );
-  }
-
   int get _availableDailyIndex {
     final unlockedCount = math.min(_daysPlayed, weeklyDailyClaimRewards.length);
     return unlockedCount - 1;
+  }
+
+  bool get _canRefreshQuests =>
+      _activeQuests.isNotEmpty &&
+      _activeQuests.every((quest) => _claimedQuestIds.contains(quest.id));
+
+  Future<_QuestState> _loadQuestState(String? userId) async {
+    if (userId == null) {
+      return const _QuestState(
+        quests: <Quest>[],
+        claimedQuestIds: <String>{},
+      );
+    }
+
+    try {
+      final row = await _supabase
+          .from('user_quest_state')
+          .select('quest_ids, claimed_quest_ids')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      final questIds = (row?['quest_ids'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList();
+      final claimedQuestIds =
+          (row?['claimed_quest_ids'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .toSet();
+
+      final resolvedQuests = questIds
+          .map((id) => _questById(id))
+          .whereType<Quest>()
+          .toList();
+
+      if (resolvedQuests.isEmpty) {
+        return _refreshQuestState(userId: userId, reopenDialog: false);
+      }
+
+      return _QuestState(
+        quests: resolvedQuests,
+        claimedQuestIds: claimedQuestIds.intersection(
+          resolvedQuests.map((quest) => quest.id).toSet(),
+        ),
+      );
+    } catch (_) {
+      return _QuestState(
+        quests: pickRandomDailyQuests(
+          count: math.min(3, dailyQuestCatalog.length),
+        ),
+        claimedQuestIds: const <String>{},
+      );
+    }
+  }
+
+  Future<int> _loadClaimedDailyIndex(String? userId) async {
+    if (userId == null) {
+      return -1;
+    }
+
+    try {
+      final row = await _supabase
+          .from('user_daily_reward_progress')
+          .select('claimed_day_index')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      return (row?['claimed_day_index'] as int?) ?? -1;
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  Quest? _questById(String id) {
+    for (final quest in dailyQuestCatalog) {
+      if (quest.id == id) {
+        return quest;
+      }
+    }
+    return null;
   }
 
   Future<void> _handleEggTap(HatcheryEggEntry entry) async {
@@ -253,24 +328,56 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    Navigator.of(context).pop();
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) => RewardDialog(
-        title: quest.title,
-        subtitle: 'Quest complete. Your team earned these goodies.',
-        reward: quest.reward,
-      ),
-    );
-
-    if (!mounted) {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
       return;
     }
 
-    setState(() {
-      _claimedQuestIds.add(quest.id);
-    });
+    final nextClaimedQuestIds = {..._claimedQuestIds, quest.id}.toList();
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    try {
+      await _itemInventoryService.grantReward(quest.reward);
+      await _supabase.from('user_quest_state').upsert({
+        'user_id': userId,
+        'quest_ids': _activeQuests.map((entry) => entry.id).toList(),
+        'claimed_quest_ids': nextClaimedQuestIds,
+        'updated_at': now,
+      }, onConflict: 'user_id');
+
+      if (!mounted) {
+        return;
+      }
+
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) => RewardDialog(
+          title: quest.title,
+          subtitle: 'Quest complete. Your team earned these goodies.',
+          reward: quest.reward,
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _loadHomeData();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not claim quest reward: $error'),
+          backgroundColor: const Color(0xFFB53C2D),
+        ),
+      );
+    }
   }
 
   Future<void> _claimDailyReward(int dayIndex, reward_model.Reward reward) async {
@@ -278,24 +385,105 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    Navigator.of(context).pop();
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) => RewardDialog(
-        title: 'Day ${dayIndex + 1} Claimed',
-        subtitle: 'Your daily login stash is ready.',
-        reward: reward,
-      ),
-    );
-
-    if (!mounted) {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
       return;
     }
 
-    setState(() {
-      _claimedDailyIndex = dayIndex;
-    });
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    try {
+      await _itemInventoryService.grantReward(reward);
+      await _supabase.from('user_daily_reward_progress').upsert({
+        'user_id': userId,
+        'claimed_day_index': dayIndex,
+        'updated_at': now,
+      }, onConflict: 'user_id');
+
+      if (!mounted) {
+        return;
+      }
+
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) => RewardDialog(
+          title: 'Day ${dayIndex + 1} Claimed',
+          subtitle: 'Your daily login stash is ready.',
+          reward: reward,
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _loadHomeData();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not claim daily reward: $error'),
+          backgroundColor: const Color(0xFFB53C2D),
+        ),
+      );
+    }
+  }
+
+  Future<_QuestState> _refreshQuestState({
+    String? userId,
+    bool reopenDialog = true,
+  }) async {
+    final resolvedUserId = userId ?? _supabase.auth.currentUser?.id;
+    if (resolvedUserId == null) {
+      return const _QuestState(
+        quests: <Quest>[],
+        claimedQuestIds: <String>{},
+      );
+    }
+
+    final selectedQuests = pickRandomDailyQuests(
+      count: math.min(3, dailyQuestCatalog.length),
+      excludeIds: dailyQuestCatalog.length > 3
+          ? _activeQuests.map((quest) => quest.id)
+          : const <String>[],
+    );
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    await _supabase.from('user_quest_state').upsert({
+      'user_id': resolvedUserId,
+      'quest_ids': selectedQuests.map((quest) => quest.id).toList(),
+      'claimed_quest_ids': const <String>[],
+      'refreshed_at': now,
+      'updated_at': now,
+    }, onConflict: 'user_id');
+
+    final nextState = _QuestState(
+      quests: selectedQuests,
+      claimedQuestIds: const <String>{},
+    );
+
+    if (mounted) {
+      setState(() {
+        _activeQuests = nextState.quests;
+        _claimedQuestIds.clear();
+      });
+    }
+
+    if (reopenDialog && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New quests are ready.'),
+        ),
+      );
+    }
+
+    return nextState;
   }
 
   Future<void> _openDailyClaims() async {
@@ -314,9 +502,21 @@ class _HomeScreenState extends State<HomeScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => QuestsDialog(
-        quests: _featuredQuests,
+        quests: _activeQuests,
         claimedQuestIds: _claimedQuestIds,
         onClaim: _claimQuest,
+        onRefresh: _canRefreshQuests
+            ? () async {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+                await _refreshQuestState();
+                if (!mounted) {
+                  return;
+                }
+                await _openQuests();
+              }
+            : null,
       ),
     );
   }
@@ -437,6 +637,16 @@ class _ActiveModuleCardData {
     required this.summary,
     required this.progress,
     required this.status,
+  });
+}
+
+class _QuestState {
+  final List<Quest> quests;
+  final Set<String> claimedQuestIds;
+
+  const _QuestState({
+    required this.quests,
+    required this.claimedQuestIds,
   });
 }
 

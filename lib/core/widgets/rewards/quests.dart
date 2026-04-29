@@ -9,12 +9,14 @@ class QuestsDialog extends StatelessWidget {
   final List<Quest> quests;
   final Set<String> claimedQuestIds;
   final Future<void> Function(Quest quest) onClaim;
+  final Future<void> Function()? onRefresh;
 
   const QuestsDialog({
     super.key,
     required this.quests,
     required this.claimedQuestIds,
     required this.onClaim,
+    this.onRefresh,
   });
 
   @override
@@ -63,6 +65,31 @@ class QuestsDialog extends StatelessWidget {
                   height: 1.45,
                 ),
               ),
+              if (_canRefresh) ...[
+                const SizedBox(height: AppSpacing.md),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: onRefresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(
+                      'Refresh quests',
+                      style: AppTextStyles.button.copyWith(fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFD6E6FF),
+                      side: const BorderSide(color: Color(0xFF5C8DFF)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: AppSpacing.md),
               for (final quest in quests) ...[
                 _QuestTile(
@@ -78,6 +105,11 @@ class QuestsDialog extends StatelessWidget {
       ),
     );
   }
+
+  bool get _canRefresh =>
+      onRefresh != null &&
+      quests.isNotEmpty &&
+      quests.every((quest) => claimedQuestIds.contains(quest.id));
 }
 
 class _QuestTile extends StatelessWidget {

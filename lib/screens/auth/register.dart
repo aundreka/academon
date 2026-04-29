@@ -127,7 +127,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
             fillColor: AppColors.card,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
+              borderSide: BorderSide(
+                color: AppColors.primary.withOpacity(0.2),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: AppColors.primary.withOpacity(0.2),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppColors.accent,
+                width: 1.5,
+              ),
             ),
           ),
         ),
@@ -148,7 +163,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: BoxDecoration(
                 color: AppColors.card,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.primary.withOpacity(0.2)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -158,8 +172,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     height: 56,
                   ),
                   const SizedBox(height: 10),
-                  Text('Join the Academy', style: AppTextStyles.title),
-                  const SizedBox(height: 24),
                   inputField(
                     label: 'Username',
                     icon: Icons.person,
