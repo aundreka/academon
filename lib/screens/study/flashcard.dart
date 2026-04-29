@@ -110,56 +110,90 @@ class _FlashcardsTabPanelState extends State<FlashcardsTabPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.card.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.35),
-          width: 1.2,
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.primary.withOpacity(0.12),
+                  Colors.transparent,
+                  AppColors.accent.withOpacity(0.08),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _header(),
-            const SizedBox(height: AppSpacing.md),
-            _actionCard(
-              title: '1. Upload PDF',
-              subtitle: _pdfName == null
-                  ? 'Choose your source file for flashcard generation.'
-                  : 'Selected: $_pdfName',
-              buttonText: 'Choose PDF',
-              icon: Icons.upload_file_rounded,
-              onTap: _isLoading ? null : _pickPdf,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.card.withOpacity(0.95),
+                AppColors.background.withOpacity(0.9),
+              ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            _actionCard(
-              title: '2. Generate Flashcards',
-              subtitle: 'Create a study deck from the uploaded document.',
-              buttonText: _isLoading ? 'Generating...' : 'Generate Flashcards',
-              icon: Icons.auto_awesome_rounded,
-              emphasize: true,
-              onTap: _isLoading ? null : _generateFlashcards,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: AppColors.primary.withOpacity(0.4),
+              width: 1.2,
             ),
-            if (_error != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                _error!,
-                style: AppTextStyles.body.copyWith(
-                  color: Colors.redAccent,
-                  fontSize: 12,
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.18),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
               ),
             ],
-            const SizedBox(height: AppSpacing.md),
-            _generatedSection(),
-          ],
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _header(),
+                const SizedBox(height: AppSpacing.md),
+                _actionCard(
+                  title: '1. Upload PDF',
+                  subtitle: _pdfName == null
+                      ? 'Choose your source file for flashcard generation.'
+                      : 'Selected: $_pdfName',
+                  buttonText: 'Choose PDF',
+                  icon: Icons.upload_file_rounded,
+                  onTap: _isLoading ? null : _pickPdf,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _actionCard(
+                  title: '2. Generate Flashcards',
+                  subtitle: 'Create a study deck from the uploaded document.',
+                  buttonText: _isLoading ? 'Generating...' : 'Generate Flashcards',
+                  icon: Icons.auto_awesome_rounded,
+                  emphasize: true,
+                  onTap: _isLoading ? null : _generateFlashcards,
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    _error!,
+                    style: AppTextStyles.body.copyWith(
+                      color: Colors.redAccent,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                _generatedSection(),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 

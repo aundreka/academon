@@ -58,25 +58,45 @@ class _StudyScreenState extends State<StudyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        const AppTopNav(),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.card.withOpacity(0.72),
-                borderRadius: BorderRadius.circular(28),
-              ),
+        const Positioned.fill(child: _StudyBackground()),
+        Column(
+          children: [
+            const AppTopNav(),
+            Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
-                child: _selectedTabIndex == null
-                    ? _buildTabLauncher()
-                    : _buildSelectedView(),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppColors.card.withOpacity(0.92),
+                        AppColors.background.withOpacity(0.88),
+                      ],
+                    ),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.28)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.22),
+                        blurRadius: 28,
+                        offset: const Offset(0, 14),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: _selectedTabIndex == null
+                        ? _buildTabLauncher()
+                        : _buildSelectedView(),
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ],
     );
@@ -398,6 +418,69 @@ class _StudyScreenState extends State<StudyScreen> {
             1 => const FlashcardsTabPanel(),
             _ => const FocusTabPanel(),
           },
+        ),
+      ],
+    );
+  }
+}
+
+class _StudyBackground extends StatelessWidget {
+  const _StudyBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF151F36),
+                  Color(0xFF0A0F1F),
+                  Color(0xFF050914),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: -90,
+          left: -40,
+          child: Container(
+            width: 260,
+            height: 260,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.primary.withOpacity(0.28),
+                  AppColors.primary.withOpacity(0.05),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          right: -50,
+          bottom: -90,
+          child: Container(
+            width: 280,
+            height: 280,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.accent.withOpacity(0.18),
+                  AppColors.accent.withOpacity(0.03),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );
