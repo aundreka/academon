@@ -7,7 +7,7 @@ import 'core/widgets/ui/bottomnav.dart';
 import 'screens/arena.dart';
 import 'screens/auth/login.dart';
 import 'screens/home.dart';
-import 'screens/pokemons.dart';
+import 'screens/inventory/pokemons.dart';
 import 'screens/shop.dart';
 import 'screens/study.dart';
 

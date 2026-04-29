@@ -8,7 +8,6 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
 import '../../core/widgets/ui/topnav.dart';
-
 class FlashcardsScreen extends StatelessWidget {
   const FlashcardsScreen({super.key});
 

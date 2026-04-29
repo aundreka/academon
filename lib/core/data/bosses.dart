@@ -1,5 +1,5 @@
 import '../models/boss.dart';
-import '../models/user.dart';
+import '../models/item.dart';
 import 'boss_abilities.dart';
 
 const worldBosses = [

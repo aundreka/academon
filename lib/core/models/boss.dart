@@ -1,5 +1,5 @@
 import 'ability.dart';
-import 'user.dart'; 
+import 'item.dart';
 
 class Boss {
   final String id;

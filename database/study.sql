@@ -59,6 +59,10 @@ create table module_attempts (
 
   xp_earned int not null default 0,
   coins_earned int not null default 0,
+  energy_before int,
+  energy_change int not null default 0,
+  energy_after int,
+  used_energy_refill boolean not null default false,
 
   passed boolean not null default false,
 
