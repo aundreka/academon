@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/data/topics.dart';
 import '../../core/models/study_topic.dart';
 import '../../core/services/study_topic_service.dart';
 import '../../core/theme/colors.dart';
@@ -21,7 +20,6 @@ class _PveScreenState extends State<PveScreen> {
   late Future<_PveLobbyData> _lobbyFuture;
   final TextEditingController _chatController = TextEditingController();
   bool _generating = false;
-  String? _convertingTopicId;
 
   @override
   void initState() {
@@ -37,21 +35,22 @@ class _PveScreenState extends State<PveScreen> {
   }
 
   Future<_PveLobbyData> _loadLobbyData() async {
-    final modules = List<StudyTopic>.from(await _topicService.fetchUserModules());
-    final topics = List<StudyTopic>.from(seededTopics);
+    final modules = List<StudyTopic>.from(
+      await _topicService.fetchUserModules(),
+    );
 
     int compareTopics(StudyTopic a, StudyTopic b) {
       final popularity = b.popularityCount.compareTo(a.popularityCount);
       if (popularity != 0) return popularity;
-      final category = a.category.toLowerCase().compareTo(b.category.toLowerCase());
+      final category = a.category.toLowerCase().compareTo(
+        b.category.toLowerCase(),
+      );
       if (category != 0) return category;
       return a.title.toLowerCase().compareTo(b.title.toLowerCase());
     }
 
     modules.sort(compareTopics);
-    topics.sort(compareTopics);
-
-    return _PveLobbyData(modules: modules, topics: topics);
+    return _PveLobbyData(modules: modules);
   }
 
   Future<void> _refreshLobby() async {
@@ -71,7 +70,9 @@ class _PveScreenState extends State<PveScreen> {
     });
 
     try {
-      final generatedModule = await _topicService.createGeneratedTopicModule(prompt);
+      final generatedModule = await _topicService.createGeneratedTopicModule(
+        prompt,
+      );
       _chatController.clear();
       await _refreshLobby();
       if (!mounted) return;
@@ -110,49 +111,9 @@ class _PveScreenState extends State<PveScreen> {
   }
 
   void _openTopic(StudyTopic topic) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PveBattleScreen(topic: topic),
-      ),
-    );
-  }
-
-  Future<void> _convertTopicToModule(StudyTopic topic) async {
-    if (_convertingTopicId != null) return;
-
-    setState(() {
-      _convertingTopicId = topic.id;
-    });
-    try {
-      final created = await _topicService.createModuleFromTopic(topic);
-      await _refreshLobby();
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${created.title} is ready in your modules.',
-            style: AppTextStyles.body.copyWith(color: Colors.white),
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.toString().replaceFirst('Exception: ', ''),
-            style: AppTextStyles.body.copyWith(color: Colors.white),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _convertingTopicId = null;
-        });
-      }
-    }
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => PveBattleScreen(topic: topic)));
   }
 
   @override
@@ -168,11 +129,7 @@ class _PveScreenState extends State<PveScreen> {
       body: Stack(
         children: [
           const Positioned.fill(child: _PveMenuBackground()),
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _ArenaGridPainter(),
-            ),
-          ),
+          Positioned.fill(child: CustomPaint(painter: _ArenaGridPainter())),
           FutureBuilder<_PveLobbyData>(
             future: _lobbyFuture,
             builder: (context, snapshot) {
@@ -234,31 +191,6 @@ class _PveScreenState extends State<PveScreen> {
                                 '${entry.value.category} | ${entry.value.popularityCount} plays',
                             accentColor: const Color(0xFF2FBD7C),
                             onTap: () => _openTopic(entry.value),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const _SectionHeader(
-                      title: 'Choose a Topic to Study',
-                      subtitle: 'Convert a topic into your module before battling.',
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    if (lobby.topics.isEmpty)
-                      const _EmptySectionCard(
-                        message: 'No public topics are available for training yet.',
-                      )
-                    else
-                      ...lobby.topics.asMap().entries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                          child: _LevelMenuTile(
-                            topic: entry.value,
-                            badgeLabel:
-                                '${entry.value.popularityCount} learners | ${entry.value.category}',
-                            accentColor: const Color(0xFFFFB347),
-                            onTap: _convertingTopicId == entry.value.id
-                                ? null
-                                : () => _convertTopicToModule(entry.value),
                           ),
                         ),
                       ),
@@ -341,9 +273,7 @@ class _GeneratorPanel extends StatelessWidget {
               ),
             ),
             Positioned.fill(
-              child: CustomPaint(
-                painter: _DiagonalTexturePainter(),
-              ),
+              child: CustomPaint(painter: _DiagonalTexturePainter()),
             ),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -427,7 +357,9 @@ class _GeneratorPanel extends StatelessWidget {
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF101827),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.md,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),
                         ),
@@ -443,7 +375,9 @@ class _GeneratorPanel extends StatelessWidget {
                             )
                           : const Icon(Icons.catching_pokemon_rounded),
                       label: Text(
-                        generating ? 'Generating Topic...' : 'Generate and Train',
+                        generating
+                            ? 'Generating Topic...'
+                            : 'Generate and Train',
                         style: AppTextStyles.button.copyWith(fontSize: 13),
                       ),
                     ),
@@ -462,10 +396,7 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const _SectionHeader({
-    required this.title,
-    required this.subtitle,
-  });
+  const _SectionHeader({required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -550,9 +481,7 @@ class _LevelMenuTile extends StatelessWidget {
                   ),
                 ),
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: _DiagonalTexturePainter(),
-                  ),
+                  child: CustomPaint(painter: _DiagonalTexturePainter()),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(AppSpacing.md),
@@ -648,9 +577,7 @@ class _LevelMenuTile extends StatelessWidget {
 class _EmptySectionCard extends StatelessWidget {
   final String message;
 
-  const _EmptySectionCard({
-    required this.message,
-  });
+  const _EmptySectionCard({required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -821,10 +748,6 @@ class _DiagonalTexturePainter extends CustomPainter {
 
 class _PveLobbyData {
   final List<StudyTopic> modules;
-  final List<StudyTopic> topics;
 
-  const _PveLobbyData({
-    this.modules = const <StudyTopic>[],
-    this.topics = const <StudyTopic>[],
-  });
+  const _PveLobbyData({this.modules = const <StudyTopic>[]});
 }

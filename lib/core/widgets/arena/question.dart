@@ -4,14 +4,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../theme/spacing.dart';
-import '../../theme/textstyles.dart';
-
 class ArenaQuestionWidget extends StatefulWidget {
   final String moduleId;
   final SupabaseClient? supabase;
   final ValueChanged<ArenaQuestionResult>? onCompleted;
-  final ArenaQuestionTurnDecision Function(ArenaAnswerResolution)? onAnswerResolved;
+  final ArenaQuestionTurnDecision Function(ArenaAnswerResolution)?
+  onAnswerResolved;
 
   const ArenaQuestionWidget({
     super.key,
@@ -55,7 +53,9 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) {
-        throw Exception('You need to be logged in before starting a study battle.');
+        throw Exception(
+          'You need to be logged in before starting a study battle.',
+        );
       }
 
       final rows = await _supabase
@@ -70,15 +70,16 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
 
       final questions = rows
           .map<_ArenaStudyQuestion?>(
-            (dynamic row) => _ArenaStudyQuestion.tryParse(
-              row as Map<String, dynamic>,
-            ),
+            (dynamic row) =>
+                _ArenaStudyQuestion.tryParse(row as Map<String, dynamic>),
           )
           .whereType<_ArenaStudyQuestion>()
           .toList();
 
       if (questions.isEmpty) {
-        throw Exception('No multiple choice questions were found for this module yet.');
+        throw Exception(
+          'No multiple choice questions were found for this module yet.',
+        );
       }
 
       final attempt = await _supabase
@@ -118,7 +119,8 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
     if (_submitting || _selectedChoice != null || _attemptId == null) return;
 
     final question = _questions[_currentIndex];
-    final isCorrect = choice.trim().toLowerCase() ==
+    final isCorrect =
+        choice.trim().toLowerCase() ==
         question.correctAnswer.trim().toLowerCase();
     final responseTimeMs = _questionShownAt == null
         ? null
@@ -155,7 +157,8 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
         isCorrect: isCorrect,
       );
 
-      final decision = widget.onAnswerResolved?.call(resolution) ??
+      final decision =
+          widget.onAnswerResolved?.call(resolution) ??
           ArenaQuestionTurnDecision.continueQuiz;
 
       if (decision == ArenaQuestionTurnDecision.finishAttempt) {
@@ -192,13 +195,16 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
     final totalQuestions = _questions.length;
     final accuracy = totalQuestions == 0 ? 0.0 : _score / totalQuestions;
 
-    await _supabase.from('module_attempts').update({
-      'score': _score,
-      'total_questions': totalQuestions,
-      'accuracy': accuracy,
-      'passed': accuracy >= 0.6,
-      'completed_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', attemptId);
+    await _supabase
+        .from('module_attempts')
+        .update({
+          'score': _score,
+          'total_questions': totalQuestions,
+          'accuracy': accuracy,
+          'passed': accuracy >= 0.6,
+          'completed_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', attemptId);
 
     if (!mounted) return;
 
@@ -268,13 +274,15 @@ class _ArenaQuestionWidgetState extends State<ArenaQuestionWidget> {
     // Determine explanation text shown after answering
     String? explanationText;
     if (_selectedChoice != null) {
-      final isCorrect = _selectedChoice!.trim().toLowerCase() ==
+      final isCorrect =
+          _selectedChoice!.trim().toLowerCase() ==
           question.correctAnswer.trim().toLowerCase();
       if (question.explanation?.trim().isNotEmpty == true) {
         explanationText = question.explanation!.trim();
       } else {
-        explanationText =
-            isCorrect ? 'That\'s right!' : 'The answer was ${question.correctAnswer}.';
+        explanationText = isCorrect
+            ? 'That\'s right!'
+            : 'The answer was ${question.correctAnswer}.';
       }
     }
 
@@ -361,66 +369,69 @@ class _PokeBattleBox extends StatelessWidget {
 
     return IntrinsicHeight(
       child: Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Left: Question dialog box (larger)
-        Expanded(
-          flex: 5,
-          child: _PokeDialogShell(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Progress indicator: small dots or text
-                  Text(
-                    'Q${questionIndex + 1}/$totalQuestions',
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10,
-                      color: Color(0xFF777777),
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Left: Question dialog box (larger)
+          Expanded(
+            flex: 5,
+            child: _PokeDialogShell(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Progress indicator: small dots or text
+                    Text(
+                      'Q${questionIndex + 1}/$totalQuestions',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 10,
+                        color: Color(0xFF777777),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    questionText,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 14,
-                      color: Color(0xFF1A1A1A),
-                      fontWeight: FontWeight.bold,
-                      height: 1.35,
+                    const SizedBox(height: 6),
+                    Text(
+                      questionText,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 14,
+                        color: Color(0xFF1A1A1A),
+                        fontWeight: FontWeight.bold,
+                        height: 1.35,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
 
-        const SizedBox(width: 4),
+          const SizedBox(width: 4),
 
-        // Right: 2×2 button grid
-        Expanded(
-          flex: 4,
-          child: _PokeButtonGrid(
-            choices: paddedChoices,
-            buttonDefs: buttonDefs,
-            selectedChoice: selectedChoice,
-            pressedChoice: pressedChoice,
-            correctAnswer: correctAnswer,
-            submitting: submitting,
-            onChoiceTap: onChoiceTap,
-            onPressedStateChanged: onPressedStateChanged,
+          // Right: 2×2 button grid
+          Expanded(
+            flex: 4,
+            child: _PokeButtonGrid(
+              choices: paddedChoices,
+              buttonDefs: buttonDefs,
+              selectedChoice: selectedChoice,
+              pressedChoice: pressedChoice,
+              correctAnswer: correctAnswer,
+              submitting: submitting,
+              onChoiceTap: onChoiceTap,
+              onPressedStateChanged: onPressedStateChanged,
+            ),
           ),
-        ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 }
@@ -499,7 +510,8 @@ class _PokeButtonGrid extends StatelessWidget {
     final def = buttonDefs[index % buttonDefs.length];
     final answered = selectedChoice != null;
     final isSelected = selectedChoice == choice;
-    final isThisCorrect = choice.trim().toLowerCase() == correctAnswer.trim().toLowerCase();
+    final isThisCorrect =
+        choice.trim().toLowerCase() == correctAnswer.trim().toLowerCase();
     final isWrongSelection = isSelected && !isThisCorrect;
     final isPressed = pressedChoice == choice;
     final enabled = !submitting && !answered;
@@ -578,9 +590,6 @@ class _PokeActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // When pressed: shift content down slightly (GBA button feel)
-    final verticalShift = isPressed ? 2.0 : 0.0;
-
     return GestureDetector(
       onTap: onTap,
       onTapDown: (_) => onPressedChanged?.call(true),
@@ -589,74 +598,81 @@ class _PokeActionButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 80),
         curve: Curves.easeOut,
-        child: Stack(
-          children: [
-            // Shadow/bottom layer (darker color — gives 3D effect)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              decoration: BoxDecoration(
-                color: bottomColor,
-                borderRadius: BorderRadius.circular(5),
-                border: Border.all(
-                  color: Colors.black.withOpacity(0.35),
-                  width: 1.5,
-                ),
-              ),
-              child: const SizedBox(height: 14), // placeholder height
-            ),
-            // Top face (shifts down when pressed)
-            AnimatedPadding(
-              duration: const Duration(milliseconds: 80),
-              padding: EdgeInsets.only(bottom: isPressed ? 0 : 3),
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: isPressed ? 9 : 6,
-                ),
+        child: SizedBox.expand(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Shadow/bottom layer (darker color — gives 3D effect)
+              Container(
                 decoration: BoxDecoration(
-                  color: topColor,
+                  color: bottomColor,
                   borderRadius: BorderRadius.circular(5),
                   border: Border.all(
-                    color: Colors.black.withOpacity(0.30),
+                    color: Colors.black.withOpacity(0.35),
                     width: 1.5,
-                  ),
-                  // Subtle highlight on top-left edge
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.25),
-                      topColor,
-                      bottomColor.withOpacity(0.6),
-                    ],
-                    stops: const [0.0, 0.4, 1.0],
-                  ),
-                ),
-                child: Text(
-                  label.toUpperCase(),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: textColor,
-                    letterSpacing: 0.3,
-                    shadows: const [
-                      Shadow(
-                        color: Colors.black45,
-                        offset: Offset(0, 1),
-                        blurRadius: 2,
-                      ),
-                    ],
                   ),
                 ),
               ),
-            ),
-          ],
+              // Top face (shifts down when pressed)
+              AnimatedPadding(
+                duration: const Duration(milliseconds: 80),
+                padding: EdgeInsets.only(bottom: isPressed ? 0 : 3),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: isPressed ? 9 : 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: topColor,
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                      color: Colors.black.withOpacity(0.30),
+                      width: 1.5,
+                    ),
+                    // Subtle highlight on top-left edge
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.25),
+                        topColor,
+                        bottomColor.withOpacity(0.6),
+                      ],
+                      stops: const [0.0, 0.4, 1.0],
+                    ),
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      height: 32,
+                      child: Center(
+                        child: Text(
+                          label.toUpperCase(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            height: 1.15,
+                            fontWeight: FontWeight.w900,
+                            color: textColor,
+                            letterSpacing: 0.3,
+                            shadows: const [
+                              Shadow(
+                                color: Colors.black45,
+                                offset: Offset(0, 1),
+                                blurRadius: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -680,10 +696,7 @@ class _PokeDialogShell extends StatelessWidget {
         color: const Color(0xFFF8F8F8),
         borderRadius: BorderRadius.circular(10),
         // Two-tone border: outer dark, inner light — classic Pokémon panel look
-        border: Border.all(
-          color: const Color(0xFF2C2C2C),
-          width: 3,
-        ),
+        border: Border.all(color: const Color(0xFF2C2C2C), width: 3),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.25),
@@ -695,10 +708,7 @@ class _PokeDialogShell extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-            color: const Color(0xFFAAAAAA),
-            width: 1.5,
-          ),
+          border: Border.all(color: const Color(0xFFAAAAAA), width: 1.5),
         ),
         child: child,
       ),
@@ -806,7 +816,4 @@ class ArenaAnswerResolution {
   });
 }
 
-enum ArenaQuestionTurnDecision {
-  continueQuiz,
-  finishAttempt,
-}
+enum ArenaQuestionTurnDecision { continueQuiz, finishAttempt }

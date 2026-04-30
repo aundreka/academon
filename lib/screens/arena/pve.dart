@@ -18,16 +18,14 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/theme/textstyles.dart';
 import '../../core/widgets/arena/boss_sprite.dart';
+import '../../core/widgets/arena/loading.dart';
 import '../../core/widgets/arena/pokemon_sprite.dart';
 import '../../core/widgets/arena/question.dart';
 
 class PveBattleScreen extends StatefulWidget {
   final StudyTopic topic;
 
-  const PveBattleScreen({
-    super.key,
-    required this.topic,
-  });
+  const PveBattleScreen({super.key, required this.topic});
 
   @override
   State<PveBattleScreen> createState() => _PveBattleScreenState();
@@ -40,11 +38,14 @@ class _PveBattleScreenState extends State<PveBattleScreen> {
   late final ItemInventoryService _inventoryService;
   late Future<_BattleBootstrap> _bootstrapFuture;
   late final AudioPlayer _bgmPlayer;
-bool _playerAttacking = false;
-bool _bossAttacking = false;
-bool _playerHit = false;
-bool _bossHit = false;
+  bool _playerAttacking = false;
+  bool _bossAttacking = false;
+  bool _playerHit = false;
+  bool _bossHit = false;
   _BattleBootstrap? _battle;
+  int _activePlayerIndex = 0;
+  int _questionSession = 0;
+  List<int> _teamHp = const [];
   int _playerHp = 0;
   int _bossHp = 0;
   bool _battleResolved = false;
@@ -69,7 +70,7 @@ bool _bossHit = false;
 
   @override
   void dispose() {
-     _bgmPlayer.stop();
+    _bgmPlayer.stop();
     _bgmPlayer.dispose();
 
     _restoreOrientations();
@@ -82,11 +83,13 @@ bool _bossHit = false;
       DeviceOrientation.landscapeRight,
     ]);
   }
+
   Future<void> _playBgm() async {
     await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
     await _bgmPlayer.setVolume(0.35);
     await _bgmPlayer.play(AssetSource('audio/battle_bgm.mp3'));
   }
+
   Future<void> _restoreOrientations() async {
     await SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
@@ -95,40 +98,42 @@ bool _bossHit = false;
       DeviceOrientation.landscapeRight,
     ]);
   }
-Future<void> _playAttackAnimation({required bool playerAttacks}) async {
-  if (!mounted) return;
 
-  setState(() {
-    _playerAttacking = playerAttacks;
-    _bossAttacking = !playerAttacks;
-  });
+  Future<void> _playAttackAnimation({required bool playerAttacks}) async {
+    if (!mounted) return;
 
-  await Future.delayed(const Duration(milliseconds: 220));
+    setState(() {
+      _playerAttacking = playerAttacks;
+      _bossAttacking = !playerAttacks;
+    });
 
-  if (!mounted) return;
+    await Future.delayed(const Duration(milliseconds: 220));
 
-  setState(() {
-    _bossHit = playerAttacks;
-    _playerHit = !playerAttacks;
-  });
+    if (!mounted) return;
 
-  await Future.delayed(const Duration(milliseconds: 140));
+    setState(() {
+      _bossHit = playerAttacks;
+      _playerHit = !playerAttacks;
+    });
 
-  if (!mounted) return;
+    await Future.delayed(const Duration(milliseconds: 140));
 
-  setState(() {
-    _playerAttacking = false;
-    _bossAttacking = false;
-    _playerHit = false;
-    _bossHit = false;
-  });
-}
+    if (!mounted) return;
+
+    setState(() {
+      _playerAttacking = false;
+      _bossAttacking = false;
+      _playerHit = false;
+      _bossHit = false;
+    });
+  }
+
   Future<_BattleBootstrap> _prepareBattle() async {
     final topic = await _loadBattleModule(widget.topic);
     await _ensureQuestionsForModule(topic);
-    final player = await _loadPlayerPokemon();
-    final boss = _selectBoss(topic, player.pokemon);
-    final playerMaxHp = _playerMaxHp(player);
+    final team = await _loadPlayerTeam();
+    final boss = _selectBoss(topic, team.first.pokemon);
+    final teamMaxHp = team.map(_playerMaxHp).toList(growable: false);
     final bossMaxHp = _bossMaxHp(boss, topic);
 
     try {
@@ -162,15 +167,19 @@ Future<void> _playAttackAnimation({required bool playerAttacks}) async {
 
     final bootstrap = _BattleBootstrap(
       topic: topic,
-      player: player,
+      team: team,
       boss: boss,
-      playerMaxHp: playerMaxHp,
+      teamMaxHp: teamMaxHp,
       bossMaxHp: bossMaxHp,
     );
 
     if (mounted) {
+      final startingIndex = bootstrap.firstAvailablePlayerIndex;
       _battle = bootstrap;
-      _playerHp = playerMaxHp;
+      _activePlayerIndex = startingIndex;
+      _questionSession = 0;
+      _teamHp = List<int>.from(teamMaxHp, growable: false);
+      _playerHp = teamMaxHp[startingIndex];
       _bossHp = bossMaxHp;
       _battleLog =
           '${boss.name} challenges your ${topic.topic} knowledge. Land correct answers to attack.';
@@ -219,34 +228,80 @@ Future<void> _playAttackAnimation({required bool playerAttacks}) async {
 
   Future<StudyTopic> _loadBattleModule(StudyTopic topic) async {
     if (!topic.isOwnedByUser) {
-      throw Exception('Only modules can be used in PvE. Convert this topic into a module first.');
+      throw Exception(
+        'Only modules can be used in PvE. Convert this topic into a module first.',
+      );
     }
     return _topicService.fetchModuleDetail(topic.id);
   }
 
-  Future<_PlayerBattlePokemon> _loadPlayerPokemon() async {
+  Future<List<_PlayerBattlePokemon>> _loadPlayerTeam() async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      return _fallbackPlayerPokemon();
+      return [_fallbackPlayerPokemon()];
     }
 
-    final row = await _supabase
+    final teamRow = await _supabase
+        .from('pokemon_teams')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', ascending: true)
+        .limit(1)
+        .maybeSingle();
+
+    final teamId = teamRow?['id'] as String?;
+    if (teamId != null) {
+      final teamMembers = await _supabase
+          .from('pokemon_team_members')
+          .select(
+            'slot_number, owned_pokemon_id, owned_pokemons(id, pokemon_id, level, xp, current_hp, nickname)',
+          )
+          .eq('team_id', teamId)
+          .order('slot_number', ascending: true);
+
+      final team = <_PlayerBattlePokemon>[];
+      for (final row in teamMembers) {
+        final member = Map<String, dynamic>.from(row);
+        final ownedPokemon = member['owned_pokemons'] as Map<String, dynamic>?;
+        final parsed = ownedPokemon == null
+            ? null
+            : _parsePlayerPokemonRow(ownedPokemon);
+        if (parsed != null) {
+          team.add(parsed);
+        }
+      }
+      if (team.isNotEmpty) {
+        return team;
+      }
+    }
+
+    final rows = await _supabase
         .from('owned_pokemons')
         .select('id, pokemon_id, level, xp, current_hp, nickname')
         .eq('user_id', user.id)
         .order('level', ascending: false)
-        .order('xp', ascending: false)
-        .limit(1)
-        .maybeSingle();
+        .order('xp', ascending: false);
 
-    if (row == null) {
-      return _fallbackPlayerPokemon();
+    final fallbackTeam = rows
+        .map((row) => _parsePlayerPokemonRow(Map<String, dynamic>.from(row)))
+        .whereType<_PlayerBattlePokemon>()
+        .take(5)
+        .toList(growable: false);
+
+    if (fallbackTeam.isNotEmpty) {
+      return fallbackTeam;
     }
 
+    return [_fallbackPlayerPokemon()];
+  }
+
+  _PlayerBattlePokemon? _parsePlayerPokemonRow(Map<String, dynamic> row) {
     final pokemonId = (row['pokemon_id'] as String?)?.trim();
-    final pokemon = starterCreatures.where((entry) => entry.id == pokemonId).firstOrNull;
+    final pokemon = starterCreatures
+        .where((entry) => entry.id == pokemonId)
+        .firstOrNull;
     if (pokemon == null) {
-      return _fallbackPlayerPokemon();
+      return null;
     }
 
     return _PlayerBattlePokemon(
@@ -282,15 +337,19 @@ Future<void> _playAttackAnimation({required bool playerAttacks}) async {
       'hard' => worldBosses.firstWhere((boss) => boss.id == 'boss_rayquaza'),
       'exam' => worldBosses.firstWhere((boss) => boss.id == 'boss_groudon'),
       _ => worldBosses.firstWhere(
-          (boss) => boss.type.split('/').first.toLowerCase() !=
-              playerPokemon.type.split('/').first.toLowerCase(),
-          orElse: () => worldBosses.first,
-        ),
+        (boss) =>
+            boss.type.split('/').first.toLowerCase() !=
+            playerPokemon.type.split('/').first.toLowerCase(),
+        orElse: () => worldBosses.first,
+      ),
     };
   }
 
   int _playerMaxHp(_PlayerBattlePokemon player) {
-    final scaled = player.pokemon.baseHp + (player.level * 14) + (player.pokemon.evolution * 20);
+    final scaled =
+        player.pokemon.baseHp +
+        (player.level * 14) +
+        (player.pokemon.evolution * 20);
     return math.max(scaled, player.storedHp);
   }
 
@@ -305,75 +364,119 @@ Future<void> _playAttackAnimation({required bool playerAttacks}) async {
     return math.max(320, (boss.maxHp * multiplier).round());
   }
 
-ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution) {
-  final battle = _battle;
-  if (battle == null || _battleResolved) {
-    return ArenaQuestionTurnDecision.finishAttempt;
+  _PlayerBattlePokemon get _activePlayer => _battle!.team[_activePlayerIndex];
+
+  int get _activePlayerMaxHp => _battle!.teamMaxHp[_activePlayerIndex];
+
+  bool get _hasRemainingTeamMembers => _teamHp.indexWhere((hp) => hp > 0) != -1;
+
+  String? _advanceToNextPlayer() {
+    final battle = _battle;
+    if (battle == null) return null;
+
+    for (var i = _activePlayerIndex + 1; i < battle.team.length; i++) {
+      if (_teamHp[i] > 0) {
+        _activePlayerIndex = i;
+        _playerHp = _teamHp[i];
+        return battle.team[i].displayName;
+      }
+    }
+
+    return null;
   }
 
-  final playerAttackMultiplier = _typeEffectiveness(
-    battle.player.pokemon.type,
-    battle.boss.type,
-  );
+  ArenaQuestionTurnDecision _handleAnswerResolved(
+    ArenaAnswerResolution resolution,
+  ) {
+    final battle = _battle;
+    if (battle == null || _battleResolved) {
+      return ArenaQuestionTurnDecision.finishAttempt;
+    }
 
-  final bossAttackMultiplier = _typeEffectiveness(
-    battle.boss.type,
-    battle.player.pokemon.type,
-  );
+    final activePlayer = _activePlayer;
 
-  if (resolution.isCorrect) {
-    _playAttackAnimation(playerAttacks: true);
-
-    final damage = _playerDamage(
-      player: battle.player,
-      boss: battle.boss,
-      topic: battle.topic,
-      typeMultiplier: playerAttackMultiplier,
+    final playerAttackMultiplier = _typeEffectiveness(
+      activePlayer.pokemon.type,
+      battle.boss.type,
     );
 
-    setState(() {
-      _bossHp = math.max(0, _bossHp - damage);
-      _battleLog = _battleMessage(
-        actor: battle.player.displayName,
-        action: 'used a study strike',
-        damage: damage,
-        multiplier: playerAttackMultiplier,
-        isCorrect: true,
-      );
-    });
-  } else {
-    _playAttackAnimation(playerAttacks: false);
-
-    final damage = _bossDamage(
-      player: battle.player,
-      boss: battle.boss,
-      typeMultiplier: bossAttackMultiplier,
+    final bossAttackMultiplier = _typeEffectiveness(
+      battle.boss.type,
+      activePlayer.pokemon.type,
     );
 
-    setState(() {
-      _playerHp = math.max(0, _playerHp - damage);
-      _battleLog = _battleMessage(
-        actor: battle.boss.name,
-        action: 'punished the mistake',
-        damage: damage,
-        multiplier: bossAttackMultiplier,
-        isCorrect: false,
+    if (resolution.isCorrect) {
+      _playAttackAnimation(playerAttacks: true);
+
+      final damage = _playerDamage(
+        player: activePlayer,
+        boss: battle.boss,
+        topic: battle.topic,
+        typeMultiplier: playerAttackMultiplier,
       );
-    });
+
+      setState(() {
+        _bossHp = math.max(0, _bossHp - damage);
+        _battleLog = _battleMessage(
+          actor: activePlayer.displayName,
+          action: 'used a study strike',
+          damage: damage,
+          multiplier: playerAttackMultiplier,
+          isCorrect: true,
+        );
+      });
+    } else {
+      _playAttackAnimation(playerAttacks: false);
+
+      final damage = _bossDamage(
+        player: activePlayer,
+        boss: battle.boss,
+        typeMultiplier: bossAttackMultiplier,
+      );
+
+      setState(() {
+        _playerHp = math.max(0, _playerHp - damage);
+        _teamHp = List<int>.from(_teamHp, growable: false)
+          ..[_activePlayerIndex] = _playerHp;
+        _battleLog = _battleMessage(
+          actor: battle.boss.name,
+          action: 'punished the mistake',
+          damage: damage,
+          multiplier: bossAttackMultiplier,
+          isCorrect: false,
+        );
+      });
+    }
+
+    if (_bossHp <= 0) {
+      _resolveBattle(won: true, partialQuestionResult: null);
+      return ArenaQuestionTurnDecision.finishAttempt;
+    }
+
+    if (_playerHp <= 0) {
+      String? nextPlayer;
+      setState(() {
+        nextPlayer = _advanceToNextPlayer();
+        if (nextPlayer != null) {
+          _battleLog =
+              '${activePlayer.displayName} fainted. $nextPlayer, you are up.';
+        } else {
+          _battleLog =
+              '${battle.boss.name} knocked out your entire battle team.';
+        }
+      });
+
+      if (nextPlayer == null && !_hasRemainingTeamMembers) {
+        _resolveBattle(won: false, partialQuestionResult: null);
+        return ArenaQuestionTurnDecision.finishAttempt;
+      }
+
+      return ArenaQuestionTurnDecision.continueQuiz;
+    }
+
+    return ArenaQuestionTurnDecision.continueQuiz;
   }
 
-  if (_bossHp <= 0) {
-    _resolveBattle(won: true, partialQuestionResult: null);
-    return ArenaQuestionTurnDecision.finishAttempt;
-  }
-
-  if (_playerHp <= 0) {
-    _resolveBattle(won: false, partialQuestionResult: null);
-    return ArenaQuestionTurnDecision.finishAttempt;
-  }
-
-  return ArenaQuestionTurnDecision.continueQuiz;
-}
   int _playerDamage({
     required _PlayerBattlePokemon player,
     required Boss boss,
@@ -388,9 +491,10 @@ ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution
       _ => 1.0,
     };
     final raw =
-        ((player.pokemon.baseAttack + (player.level * 4)) - (boss.baseDefense * 0.32)) *
-            typeMultiplier *
-            difficultyBonus;
+        ((player.pokemon.baseAttack + (player.level * 4)) -
+            (boss.baseDefense * 0.32)) *
+        typeMultiplier *
+        difficultyBonus;
     return math.max(32, raw.round());
   }
 
@@ -400,8 +504,10 @@ ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution
     required double typeMultiplier,
   }) {
     final raw =
-        ((boss.baseAttack * 0.42) - (player.pokemon.baseDefense * 0.25) - player.level) *
-            typeMultiplier;
+        ((boss.baseAttack * 0.42) -
+            (player.pokemon.baseDefense * 0.25) -
+            player.level) *
+        typeMultiplier;
     return math.max(24, raw.round());
   }
 
@@ -415,8 +521,8 @@ ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution
     final effectiveness = multiplier >= 1.5
         ? ' It was super effective.'
         : multiplier <= 0.75
-            ? ' It was resisted.'
-            : '';
+        ? ' It was resisted.'
+        : '';
     return isCorrect
         ? '$actor $action for $damage damage.$effectiveness'
         : '$actor $action for $damage damage.$effectiveness';
@@ -432,30 +538,53 @@ ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution
 
   double _typeEffectiveness(String attackType, String targetType) {
     final attack = attackType.split('/').first.trim().toLowerCase();
-    final targetParts =
-        targetType.split('/').map((part) => part.trim().toLowerCase()).toList();
+    final targetParts = targetType
+        .split('/')
+        .map((part) => part.trim().toLowerCase())
+        .toList();
     double multiplier = 1.0;
 
     for (final target in targetParts) {
-      if (attack == 'fire' && {'grass'}.contains(target)) multiplier *= 1.4;
-      if (attack == 'fire' && {'water', 'fire'}.contains(target)) multiplier *= 0.75;
-      if (attack == 'water' && {'fire', 'ground'}.contains(target)) multiplier *= 1.4;
-      if (attack == 'water' && {'grass', 'electric'}.contains(target)) multiplier *= 0.8;
-      if (attack == 'grass' && {'water', 'ground'}.contains(target)) multiplier *= 1.4;
+      if (attack == 'fire' && {'grass'}.contains(target)) {
+        multiplier *= 1.4;
+      }
+      if (attack == 'fire' && {'water', 'fire'}.contains(target)) {
+        multiplier *= 0.75;
+      }
+      if (attack == 'water' && {'fire', 'ground'}.contains(target)) {
+        multiplier *= 1.4;
+      }
+      if (attack == 'water' && {'grass', 'electric'}.contains(target)) {
+        multiplier *= 0.8;
+      }
+      if (attack == 'grass' && {'water', 'ground'}.contains(target)) {
+        multiplier *= 1.4;
+      }
       if (attack == 'grass' && {'fire', 'grass', 'flying'}.contains(target)) {
         multiplier *= 0.75;
       }
-      if (attack == 'electric' && {'water', 'flying'}.contains(target)) multiplier *= 1.5;
-      if (attack == 'electric' && {'grass', 'dragon', 'ground'}.contains(target)) {
+      if (attack == 'electric' && {'water', 'flying'}.contains(target)) {
+        multiplier *= 1.5;
+      }
+      if (attack == 'electric' &&
+          {'grass', 'dragon', 'ground'}.contains(target)) {
         multiplier *= 0.7;
       }
       if (attack == 'psychic' && {'fighting', 'poison'}.contains(target)) {
         multiplier *= 1.35;
       }
-      if (attack == 'ghost' && {'psychic', 'ghost'}.contains(target)) multiplier *= 1.4;
-      if (attack == 'dragon' && {'dragon'}.contains(target)) multiplier *= 1.45;
-      if (attack == 'ground' && {'fire', 'electric'}.contains(target)) multiplier *= 1.35;
-      if (attack == 'flying' && {'grass'}.contains(target)) multiplier *= 1.25;
+      if (attack == 'ghost' && {'psychic', 'ghost'}.contains(target)) {
+        multiplier *= 1.4;
+      }
+      if (attack == 'dragon' && {'dragon'}.contains(target)) {
+        multiplier *= 1.45;
+      }
+      if (attack == 'ground' && {'fire', 'electric'}.contains(target)) {
+        multiplier *= 1.35;
+      }
+      if (attack == 'flying' && {'grass'}.contains(target)) {
+        multiplier *= 1.25;
+      }
     }
 
     return multiplier.clamp(0.6, 1.8);
@@ -468,12 +597,23 @@ ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution
     if (won) {
       setState(() {
         _bossHp = 0;
-        _battleLog = '${_battle?.boss.name ?? 'Boss'} was overwhelmed by your final answer chain.';
+        _battleLog =
+            '${_battle?.boss.name ?? 'Boss'} was overwhelmed by your final answer chain.';
       });
+    } else if (_hasRemainingTeamMembers) {
+      setState(() {
+        _questionSession += 1;
+        _battleLog =
+            '${_activePlayer.displayName} held the line. Another question round begins.';
+      });
+      return;
     } else {
       setState(() {
         _playerHp = 0;
-        _battleLog = '${_battle?.boss.name ?? 'Boss'} survived the quiz and knocked your team out.';
+        _teamHp = List<int>.from(_teamHp, growable: false)
+          ..[_activePlayerIndex] = 0;
+        _battleLog =
+            '${_battle?.boss.name ?? 'Boss'} survived the quiz and knocked your team out.';
       });
     }
     await _resolveBattle(won: won, partialQuestionResult: result);
@@ -493,18 +633,19 @@ ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution
     final battle = _battle;
     if (battle == null) return;
 
-    final performance = partialQuestionResult?.accuracy ??
+    final performance =
+        partialQuestionResult?.accuracy ??
         ((_bossHp <= 0 && battle.bossMaxHp > 0)
-            ? 1 - (_playerHp / battle.playerMaxHp).clamp(0.0, 1.0) * 0.25
+            ? 1 - (_teamHealthRatio(battle) * 0.25)
             : 0.2);
 
     final rolledReward = won
         ? rollPveReward(performance: performance) +
-            Reward(
-              xp: battle.boss.xpReward,
-              coins: battle.boss.coinReward,
-              items: battle.boss.rewards,
-            )
+              Reward(
+                xp: battle.boss.xpReward,
+                coins: battle.boss.coinReward,
+                items: battle.boss.rewards,
+              )
         : const Reward();
 
     setState(() {
@@ -558,114 +699,140 @@ ArenaQuestionTurnDecision _handleAnswerResolved(ArenaAnswerResolution resolution
       // Non-blocking history logging.
     }
 
-    if (battle.player.ownedPokemonId != null) {
-      try {
-        await _supabase
+    final updates = <Future<void>>[];
+    final updatedAt = DateTime.now().toUtc().toIso8601String();
+    for (var i = 0; i < battle.team.length && i < _teamHp.length; i++) {
+      final ownedPokemonId = battle.team[i].ownedPokemonId;
+      if (ownedPokemonId == null) continue;
+      updates.add(
+        _supabase
             .from('owned_pokemons')
             .update({
-              'current_hp': math.max(0, _playerHp),
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
+              'current_hp': math.max(0, _teamHp[i]),
+              'updated_at': updatedAt,
             })
-            .eq('id', battle.player.ownedPokemonId!);
+            .eq('id', ownedPokemonId)
+            .then((_) {}),
+      );
+    }
+    if (updates.isNotEmpty) {
+      try {
+        await Future.wait(updates);
       } catch (_) {
         // Non-blocking HP sync.
       }
     }
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: AppColors.background,
-    body: FutureBuilder<_BattleBootstrap>(
-      future: _bootstrapFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
-          );
-        }
+  double _teamHealthRatio(_BattleBootstrap battle) {
+    if (battle.teamMaxHp.isEmpty || _teamHp.isEmpty) {
+      return 0.0;
+    }
+    final totalMaxHp = battle.teamMaxHp.fold<int>(0, (sum, hp) => sum + hp);
+    if (totalMaxHp <= 0) {
+      return 0.0;
+    }
+    final totalRemainingHp = _teamHp.fold<int>(0, (sum, hp) => sum + hp);
+    return (totalRemainingHp / totalMaxHp).clamp(0.0, 1.0);
+  }
 
-        if (snapshot.hasError || !snapshot.hasData) {
-          return _BattleMessageScaffold(
-            title: 'Battle Unavailable',
-            message: snapshot.error.toString().replaceFirst('Exception: ', ''),
-          );
-        }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: FutureBuilder<_BattleBootstrap>(
+        future: _bootstrapFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const PvPLoadingScreen(
+              title: 'Preparing Battle',
+              subtitle: 'Generating questions for your module...',
+            );
+          }
 
-        final battle = snapshot.data!;
-        final reward = _earnedReward;
-
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: Image.asset(
-                'assets/bg/pve.jpg',
-                fit: BoxFit.cover,
+          if (snapshot.hasError || !snapshot.hasData) {
+            return _BattleMessageScaffold(
+              title: 'Battle Unavailable',
+              message: snapshot.error.toString().replaceFirst(
+                'Exception: ',
+                '',
               ),
-            ),
+            );
+          }
 
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withOpacity(0.08),
+          final battle = snapshot.data!;
+          final reward = _earnedReward;
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: Image.asset('assets/bg/pve.jpg', fit: BoxFit.cover),
               ),
-            ),
 
-            SafeArea(
-              child: _battleResolved
-                  ? Align(
-                      alignment: Alignment.centerRight,
-                      child: SizedBox(
-                        width: 430,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: _BattleResultPanel(
-                            won: _wonBattle ?? false,
-                            reward: reward,
-                            rewarding: _rewarding,
-                            topic: battle.topic,
-                            onBack: () => Navigator.of(context).pop(),
+              Positioned.fill(
+                child: Container(color: Colors.black.withOpacity(0.08)),
+              ),
+
+              SafeArea(
+                child: _battleResolved
+                    ? Align(
+                        alignment: Alignment.centerRight,
+                        child: SizedBox(
+                          width: 430,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: _BattleResultPanel(
+                              won: _wonBattle ?? false,
+                              reward: reward,
+                              rewarding: _rewarding,
+                              topic: battle.topic,
+                              onBack: () => Navigator.of(context).pop(),
+                            ),
                           ),
                         ),
+                      )
+                    : _BattlefieldPanel(
+                        battle: battle,
+                        activePlayer: _activePlayer,
+                        playerHp: _playerHp,
+                        playerMaxHp: _activePlayerMaxHp,
+                        bossHp: _bossHp,
+                        battleLog: _battleLog,
+                        playerAttacking: _playerAttacking,
+                        bossAttacking: _bossAttacking,
+                        playerHit: _playerHit,
+                        bossHit: _bossHit,
                       ),
-                    )
-                  : _BattlefieldPanel(
-                      battle: battle,
-                      playerHp: _playerHp,
-                      bossHp: _bossHp,
-                      battleLog: _battleLog,
-                      playerAttacking: _playerAttacking,
-                      bossAttacking: _bossAttacking,
-                      playerHit: _playerHit,
-                      bossHit: _bossHit,
-                    ),
-            ),
+              ),
 
-            if (!_battleResolved)
-              Positioned(
-                top: 12,
-                left: 120,
-                right: 120,
-                child: SafeArea(
-                  child: ArenaQuestionWidget(
-                    moduleId: battle.topic.id,
-                    supabase: _supabase,
-                    onAnswerResolved: _handleAnswerResolved,
-                    onCompleted: _handleQuestionCompleted,
+              if (!_battleResolved)
+                Positioned(
+                  top: 12,
+                  left: 120,
+                  right: 120,
+                  child: SafeArea(
+                    child: ArenaQuestionWidget(
+                      key: ValueKey(_questionSession),
+                      moduleId: battle.topic.id,
+                      supabase: _supabase,
+                      onAnswerResolved: _handleAnswerResolved,
+                      onCompleted: _handleQuestionCompleted,
+                    ),
                   ),
                 ),
-              ),
-          ],
-        );
-      },
-    ),
-  );
-}
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _BattlefieldPanel extends StatelessWidget {
   final _BattleBootstrap battle;
+  final _PlayerBattlePokemon activePlayer;
   final int playerHp;
+  final int playerMaxHp;
   final int bossHp;
   final String battleLog;
   final bool playerAttacking;
@@ -675,7 +842,9 @@ class _BattlefieldPanel extends StatelessWidget {
 
   const _BattlefieldPanel({
     required this.battle,
+    required this.activePlayer,
     required this.playerHp,
+    required this.playerMaxHp,
     required this.bossHp,
     required this.battleLog,
     required this.playerAttacking,
@@ -688,19 +857,6 @@ class _BattlefieldPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Positioned(
-          top: 24,
-          right: 44,
-          child: Container(
-            width: 150,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.24),
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-        ),
-
         Positioned(
           left: 32,
           right: 32,
@@ -724,11 +880,11 @@ class _BattlefieldPanel extends StatelessWidget {
                       child: _HitFlash(
                         active: playerHit,
                         child: PokemonBattleSprite(
-                          pokemon: battle.player.pokemon,
+                          pokemon: activePlayer.pokemon,
                           displayName:
-                              '${battle.player.displayName} Lv.${battle.player.level}',
+                              '${activePlayer.displayName} Lv.${activePlayer.level}',
                           currentHp: playerHp,
-                          maxHp: battle.playerMaxHp,
+                          maxHp: playerMaxHp,
                           side: BattleSpriteSide.left,
                           width: 250,
                           height: 280,
@@ -758,7 +914,7 @@ class _BattlefieldPanel extends StatelessWidget {
                             children: [
                               Padding(
                                 padding: const EdgeInsets.only(top: 70),
-                                
+
                                 child: BossBattleSprite(
                                   boss: battle.boss,
                                   currentHp: bossHp,
@@ -789,12 +945,33 @@ class _BattlefieldPanel extends StatelessWidget {
             },
           ),
         ),
-
-      
+        Positioned(
+          left: 44,
+          bottom: 24,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.42),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white.withOpacity(0.12)),
+              ),
+              child: Text(
+                battleLog,
+                style: AppTextStyles.body.copyWith(
+                  color: Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 }
+
 class _BossHpBar extends StatelessWidget {
   final String bossName;
   final int currentHp;
@@ -815,10 +992,7 @@ class _BossHpBar extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF8E174E),
-            Color(0xFFFF6545),
-          ],
+          colors: [Color(0xFF8E174E), Color(0xFFFF6545)],
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
@@ -872,10 +1046,7 @@ class _HitFlash extends StatelessWidget {
   final bool active;
   final Widget child;
 
-  const _HitFlash({
-    required this.active,
-    required this.child,
-  });
+  const _HitFlash({required this.active, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -917,16 +1088,8 @@ class _BattleResultPanel extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: won
-              ? const [
-                  Color(0xFF0E2C25),
-                  Color(0xFF164238),
-                  Color(0xFF21594D),
-                ]
-              : const [
-                  Color(0xFF2C1118),
-                  Color(0xFF431E28),
-                  Color(0xFF5B2833),
-                ],
+              ? const [Color(0xFF0E2C25), Color(0xFF164238), Color(0xFF21594D)]
+              : const [Color(0xFF2C1118), Color(0xFF431E28), Color(0xFF5B2833)],
         ),
         border: Border.all(color: Colors.white.withOpacity(0.12)),
       ),
@@ -943,7 +1106,10 @@ class _BattleResultPanel extends StatelessWidget {
             won
                 ? 'You cleared ${topic.topic} training and earned battle rewards.'
                 : 'Your Pokemon fainted before the lesson gauntlet was cleared.',
-            style: AppTextStyles.body.copyWith(fontSize: 13, color: Colors.white),
+            style: AppTextStyles.body.copyWith(
+              fontSize: 13,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           if (rewarding)
@@ -957,7 +1123,9 @@ class _BattleResultPanel extends StatelessWidget {
               child: reward?.isEmpty != false
                   ? Center(
                       child: Text(
-                        won ? 'Rewards are being tallied.' : 'No rewards this round.',
+                        won
+                            ? 'Rewards are being tallied.'
+                            : 'No rewards this round.',
                         style: AppTextStyles.body.copyWith(fontSize: 13),
                       ),
                     )
@@ -969,7 +1137,9 @@ class _BattleResultPanel extends StatelessWidget {
             child: FilledButton(
               onPressed: onBack,
               style: FilledButton.styleFrom(
-                backgroundColor: won ? const Color(0xFF4AD58A) : const Color(0xFFFF8A80),
+                backgroundColor: won
+                    ? const Color(0xFF4AD58A)
+                    : const Color(0xFFFF8A80),
                 foregroundColor: const Color(0xFF141A22),
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               ),
@@ -990,9 +1160,7 @@ class _BattleResultPanel extends StatelessWidget {
 class _RewardSummary extends StatelessWidget {
   final Reward reward;
 
-  const _RewardSummary({
-    required this.reward,
-  });
+  const _RewardSummary({required this.reward});
 
   @override
   Widget build(BuildContext context) {
@@ -1005,10 +1173,7 @@ class _RewardSummary extends StatelessWidget {
           _RewardRow(label: 'Diamonds', value: '${reward.diamonds}'),
           if (reward.items.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
-            Text(
-              'Items',
-              style: AppTextStyles.button.copyWith(fontSize: 14),
-            ),
+            Text('Items', style: AppTextStyles.button.copyWith(fontSize: 14)),
             const SizedBox(height: AppSpacing.sm),
             ...reward.items.map(
               (item) => Padding(
@@ -1051,10 +1216,7 @@ class _RewardRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _RewardRow({
-    required this.label,
-    required this.value,
-  });
+  const _RewardRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -1071,13 +1233,13 @@ class _RewardRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: AppTextStyles.body.copyWith(fontSize: 13, color: Colors.white),
+                style: AppTextStyles.body.copyWith(
+                  fontSize: 13,
+                  color: Colors.white,
+                ),
               ),
             ),
-            Text(
-              value,
-              style: AppTextStyles.button.copyWith(fontSize: 13),
-            ),
+            Text(value, style: AppTextStyles.button.copyWith(fontSize: 13)),
           ],
         ),
       ),
@@ -1085,16 +1247,11 @@ class _RewardRow extends StatelessWidget {
   }
 }
 
-
-
 class _BattleMessageScaffold extends StatelessWidget {
   final String title;
   final String message;
 
-  const _BattleMessageScaffold({
-    required this.title,
-    required this.message,
-  });
+  const _BattleMessageScaffold({required this.title, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -1106,10 +1263,7 @@ class _BattleMessageScaffold extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                title,
-                style: AppTextStyles.title.copyWith(fontSize: 18),
-              ),
+              Text(title, style: AppTextStyles.title.copyWith(fontSize: 18)),
               const SizedBox(height: AppSpacing.sm),
               Text(
                 message,
@@ -1126,18 +1280,23 @@ class _BattleMessageScaffold extends StatelessWidget {
 
 class _BattleBootstrap {
   final StudyTopic topic;
-  final _PlayerBattlePokemon player;
+  final List<_PlayerBattlePokemon> team;
   final Boss boss;
-  final int playerMaxHp;
+  final List<int> teamMaxHp;
   final int bossMaxHp;
 
   const _BattleBootstrap({
     required this.topic,
-    required this.player,
+    required this.team,
     required this.boss,
-    required this.playerMaxHp,
+    required this.teamMaxHp,
     required this.bossMaxHp,
   });
+
+  int get firstAvailablePlayerIndex {
+    final index = teamMaxHp.indexWhere((hp) => hp > 0);
+    return index == -1 ? 0 : index;
+  }
 }
 
 class _PlayerBattlePokemon {
@@ -1157,7 +1316,8 @@ class _PlayerBattlePokemon {
     required this.storedHp,
   });
 
-  String get displayName => nickname?.isNotEmpty == true ? nickname! : pokemon.name;
+  String get displayName =>
+      nickname?.isNotEmpty == true ? nickname! : pokemon.name;
 }
 
 extension<T> on Iterable<T> {

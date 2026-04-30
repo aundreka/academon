@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/data/topics.dart';
 import '../core/models/study_topic.dart';
 import '../core/services/study_topic_service.dart';
 import '../core/theme/colors.dart';
@@ -10,8 +13,6 @@ import '../core/widgets/topics/topic_views.dart';
 import 'arena/pve.dart';
 import '../core/widgets/ui/topnav.dart';
 import 'arena/pve_menu.dart';
-import 'arena/pvp_quickmatch.dart';
-import 'arena/pvp_ranked.dart';
 
 class ArenaScreen extends StatefulWidget {
   const ArenaScreen({super.key});
@@ -25,6 +26,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
   late final StudyTopicService _topicService;
   late Future<int?> _energyFuture;
   late Future<List<StudyTopic>> _popularTopicsFuture;
+  String? _convertingTopicId;
 
   @override
   void initState() {
@@ -59,31 +61,99 @@ class _ArenaScreenState extends State<ArenaScreen> {
   }
 
   Future<List<StudyTopic>> _loadPopularTopics() async {
-    final topics = await _topicService.fetchAvailableTopics();
+    final topics = List<StudyTopic>.from(seededTopics);
     topics.sort((a, b) {
       final popularity = b.popularityCount.compareTo(a.popularityCount);
       if (popularity != 0) return popularity;
       return a.title.toLowerCase().compareTo(b.title.toLowerCase());
     });
-    return topics.take(4).toList();
+    return topics.take(3).toList(growable: false);
   }
 
-  void _openScreen(BuildContext context, Widget screen) {
+  void _openScreen(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Future<void> _convertTopicToModule(StudyTopic topic) async {
+    if (_convertingTopicId != null) return;
+
+    setState(() {
+      _convertingTopicId = topic.id;
+    });
+
+    try {
+      final created = await _topicService.createModuleFromTopic(topic);
+      _popularTopicsFuture = _loadPopularTopics();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${created.title} is ready in Training Grounds.',
+            style: AppTextStyles.body.copyWith(color: Colors.white),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.toString().replaceFirst('Exception: ', ''),
+            style: AppTextStyles.body.copyWith(color: Colors.white),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _convertingTopicId = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _openDemoPvp() async {
+    try {
+      final modules = await _topicService.fetchUserModules();
+      if (!mounted) return;
+
+      if (modules.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No modules available yet. Create one in Training Grounds first.',
+              style: AppTextStyles.body.copyWith(color: Colors.white),
+            ),
+          ),
+        );
+        _openScreen(const PveScreen());
+        return;
+      }
+
+      final random = math.Random();
+      final module = modules[random.nextInt(modules.length)];
+      _openScreen(PveBattleScreen(topic: module));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.toString().replaceFirst('Exception: ', ''),
+            style: AppTextStyles.body.copyWith(color: Colors.white),
+          ),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const Positioned.fill(
-          child: _ArenaBackground(),
-        ),
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _ArenaGridPainter(),
-          ),
-        ),
+        const Positioned.fill(child: _ArenaBackground()),
+        Positioned.fill(child: CustomPaint(painter: _ArenaGridPainter())),
         Column(
           children: [
             const AppTopNav(),
@@ -102,17 +172,15 @@ class _ArenaScreenState extends State<ArenaScreen> {
                       ),
                       children: [
                         _ArenaControlPanel(
-                          onTrain: () => _openScreen(context, const PveScreen()),
-                          onQuickmatch: () =>
-                              _openScreen(context, const PvpScreen()),
-                          onRanked: () =>
-                              _openScreen(context, const PvpRankedScreen()),
+                          onTrain: () => _openScreen(const PveScreen()),
+                          onQuickmatch: _openDemoPvp,
+                          onRanked: _openDemoPvp,
                         ),
                         const SizedBox(height: AppSpacing.md),
                         _DailyPopularTopicsSection(
                           topicsFuture: _popularTopicsFuture,
-                          onTopicTap: (topic) =>
-                              _openScreen(context, PveBattleScreen(topic: topic)),
+                          convertingTopicId: _convertingTopicId,
+                          onTopicTap: _convertTopicToModule,
                         ),
                       ],
                     ),
@@ -417,9 +485,7 @@ class _ArenaModeTile extends StatelessWidget {
                   ),
                 ),
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: _DiagonalTexturePainter(),
-                  ),
+                  child: CustomPaint(painter: _DiagonalTexturePainter()),
                 ),
                 Padding(
                   padding: contentPadding,
@@ -517,10 +583,12 @@ class _ArenaModeTile extends StatelessWidget {
 class _DailyPopularTopicsSection extends StatelessWidget {
   final Future<List<StudyTopic>> topicsFuture;
   final ValueChanged<StudyTopic> onTopicTap;
+  final String? convertingTopicId;
 
   const _DailyPopularTopicsSection({
     required this.topicsFuture,
     required this.onTopicTap,
+    required this.convertingTopicId,
   });
 
   @override
@@ -548,7 +616,7 @@ class _DailyPopularTopicsSection extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Trending training picks from other players today.',
+            'Convert one of today\'s seeded picks into a training module.',
             style: AppTextStyles.body.copyWith(fontSize: 12),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -584,15 +652,20 @@ class _DailyPopularTopicsSection extends StatelessWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: topics.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: AppSpacing.md),
                   itemBuilder: (context, index) {
                     final topic = topics[index];
                     return SizedBox(
                       width: 250,
-                        child: StudyTopicCard(
+                      child: StudyTopicCard(
                         topic: topic,
-                        badgeLabel: '${topic.popularityCount} learners',
-                        onTap: () => onTopicTap(topic),
+                        badgeLabel: convertingTopicId == topic.id
+                            ? 'Converting...'
+                            : '${topic.popularityCount} learners | ${topic.category}',
+                        onTap: convertingTopicId == topic.id
+                            ? null
+                            : () => onTopicTap(topic),
                       ),
                     );
                   },
@@ -609,9 +682,7 @@ class _DailyPopularTopicsSection extends StatelessWidget {
 class _EnergyPanel extends StatelessWidget {
   final Future<int?> energyFuture;
 
-  const _EnergyPanel({
-    required this.energyFuture,
-  });
+  const _EnergyPanel({required this.energyFuture});
 
   @override
   Widget build(BuildContext context) {
@@ -646,10 +717,7 @@ class _EnergyPanel extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFFFD56A),
-                      Color(0xFFFF9F3D),
-                    ],
+                    colors: [Color(0xFFFFD56A), Color(0xFFFF9F3D)],
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -659,10 +727,7 @@ class _EnergyPanel extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.bolt_rounded,
-                  color: Color(0xFF1B2234),
-                ),
+                child: const Icon(Icons.bolt_rounded, color: Color(0xFF1B2234)),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -681,8 +746,8 @@ class _EnergyPanel extends StatelessWidget {
                       hasError
                           ? 'Unable to load'
                           : isLoading
-                              ? 'Loading...'
-                              : '${energy ?? 0}',
+                          ? 'Loading...'
+                          : '${energy ?? 0}',
                       style: AppTextStyles.title.copyWith(fontSize: 22),
                     ),
                   ],
