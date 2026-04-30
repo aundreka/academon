@@ -758,18 +758,20 @@ class _BattlefieldPanel extends StatelessWidget {
                             children: [
                               Padding(
                                 padding: const EdgeInsets.only(top: 70),
+                                
                                 child: BossBattleSprite(
                                   boss: battle.boss,
                                   currentHp: bossHp,
                                   maxHp: battle.bossMaxHp,
-                                  width: 520,
-                                  height: 600,
+                                  width: 300,
+                                  height: 230,
                                   showHpBar: false,
                                 ),
                               ),
 
                               Positioned(
-                                top: 150,
+                                top: -20,
+                                right: 30,
                                 child: _BossHpBar(
                                   bossName: battle.boss.name,
                                   currentHp: bossHp,
