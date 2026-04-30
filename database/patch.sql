@@ -1,5 +1,26 @@
 begin;
 
+drop policy if exists "pokemon_teams_delete_own" on public.pokemon_teams;
+create policy "pokemon_teams_delete_own"
+on public.pokemon_teams
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
+drop policy if exists "pokemon_team_members_delete_own" on public.pokemon_team_members;
+create policy "pokemon_team_members_delete_own"
+on public.pokemon_team_members
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.pokemon_teams
+    where public.pokemon_teams.id = public.pokemon_team_members.team_id
+      and public.pokemon_teams.user_id = auth.uid()
+  )
+);
+
 -- Rename shop eggs to the new tier names.
 update public.inventory_items
 set name = 'Starter Egg',

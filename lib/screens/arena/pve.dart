@@ -718,7 +718,7 @@ class _BattlefieldPanel extends StatelessWidget {
                       curve: Curves.easeOutBack,
                       transform: Matrix4.translationValues(
                         playerAttacking ? travelX : 0,
-                        playerAttacking ? -35 : 0,
+                        playerAttacking ? -85 : -50,
                         0,
                       ),
                       child: _HitFlash(
@@ -747,7 +747,7 @@ class _BattlefieldPanel extends StatelessWidget {
                         curve: Curves.easeOutBack,
                         transform: Matrix4.translationValues(
                           bossAttacking ? -travelX : 0,
-                          bossAttacking ? 35 : 0,
+                          bossAttacking ? -15 : -50,
                           0,
                         ),
                         child: _HitFlash(

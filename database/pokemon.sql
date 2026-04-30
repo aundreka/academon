@@ -130,6 +130,12 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+create policy "pokemon_teams_delete_own"
+on pokemon_teams
+for delete
+to authenticated
+using (auth.uid() = user_id);
+
 create policy "pokemon_team_members_select_own"
 on pokemon_team_members
 for select
@@ -169,6 +175,19 @@ using (
   )
 )
 with check (
+  exists (
+    select 1
+    from pokemon_teams
+    where pokemon_teams.id = pokemon_team_members.team_id
+      and pokemon_teams.user_id = auth.uid()
+  )
+);
+
+create policy "pokemon_team_members_delete_own"
+on pokemon_team_members
+for delete
+to authenticated
+using (
   exists (
     select 1
     from pokemon_teams

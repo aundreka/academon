@@ -19,6 +19,7 @@ class PokemonsScreen extends StatefulWidget {
 }
 
 enum _SortMode { rarity, name }
+
 enum _InventorySection { pokemons, items }
 
 class _PokemonsScreenState extends State<PokemonsScreen> {
@@ -58,7 +59,9 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) {
-        throw Exception('You need to be logged in to view your Pokemon inventory.');
+        throw Exception(
+          'You need to be logged in to view your Pokemon inventory.',
+        );
       }
 
       final ownedRows = await _supabase
@@ -94,7 +97,9 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
           final map = Map<String, dynamic>.from(row);
           final teamId = map['team_id'] as String?;
           if (teamId == null) continue;
-          membersByTeam.putIfAbsent(teamId, () => <_TeamMemberSlot>[]).add(
+          membersByTeam
+              .putIfAbsent(teamId, () => <_TeamMemberSlot>[])
+              .add(
                 _TeamMemberSlot(
                   slotNumber: (map['slot_number'] as int?) ?? 1,
                   ownedPokemonId: map['owned_pokemon_id'] as String?,
@@ -106,7 +111,9 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
       for (final row in teamRows) {
         final map = Map<String, dynamic>.from(row);
         final teamId = map['id'] as String;
-        final members = List<_TeamMemberSlot>.from(membersByTeam[teamId] ?? const []);
+        final members = List<_TeamMemberSlot>.from(
+          membersByTeam[teamId] ?? const [],
+        );
         members.sort((a, b) => a.slotNumber.compareTo(b.slotNumber));
         teams.add(
           _PokemonTeamView(
@@ -125,9 +132,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
 
       final typeFilters = [
         _allFilter,
-        ...{
-          for (final entry in entries) _primaryType(entry.pokemon.type),
-        },
+        ...{for (final entry in entries) _primaryType(entry.pokemon.type)},
       ];
 
       if (!mounted) return;
@@ -168,16 +173,15 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
     );
   }
 
-  Future<_PokemonTeamView?> _createDefaultTeam(List<_OwnedPokemonEntry> entries) async {
+  Future<_PokemonTeamView?> _createDefaultTeam(
+    List<_OwnedPokemonEntry> entries,
+  ) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return null;
 
     final team = await _supabase
         .from('pokemon_teams')
-        .insert({
-          'user_id': user.id,
-          'name': 'Battle Deck',
-        })
+        .insert({'user_id': user.id, 'name': 'Battle Deck'})
         .select('id, name')
         .single();
 
@@ -185,7 +189,9 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
     final initialMembers = entries.take(_teamSize).toList();
 
     if (initialMembers.isNotEmpty) {
-      await _supabase.from('pokemon_team_members').insert(
+      await _supabase
+          .from('pokemon_team_members')
+          .insert(
             initialMembers
                 .asMap()
                 .entries
@@ -251,19 +257,25 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
 
   List<_OwnedPokemonEntry> _filteredEntries() {
     final teamOwnedIds = _selectedTeamOwnedIds;
-    final filtered = _entries.where((entry) {
-      final matchesType = _selectedTypeFilter == _allFilter ||
-          _primaryType(entry.pokemon.type) == _selectedTypeFilter;
-      return matchesType;
-    }).map((entry) {
-      return entry.copyWith(inDeck: teamOwnedIds.contains(entry.ownedPokemonId));
-    }).toList();
+    final filtered = _entries
+        .where((entry) {
+          final matchesType =
+              _selectedTypeFilter == _allFilter ||
+              _primaryType(entry.pokemon.type) == _selectedTypeFilter;
+          return matchesType;
+        })
+        .map((entry) {
+          return entry.copyWith(
+            inDeck: teamOwnedIds.contains(entry.ownedPokemonId),
+          );
+        })
+        .toList();
 
     filtered.sort((a, b) {
       if (_sortMode == _SortMode.rarity) {
-        final rarityCompare = _rarityWeight(b.pokemon.rarity).compareTo(
-          _rarityWeight(a.pokemon.rarity),
-        );
+        final rarityCompare = _rarityWeight(
+          b.pokemon.rarity,
+        ).compareTo(_rarityWeight(a.pokemon.rarity));
         if (rarityCompare != 0) return rarityCompare;
       }
       return a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
@@ -289,10 +301,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return _TeamEditorSheet(
-          entries: _entries,
-          initialSlots: initialSlots,
-        );
+        return _TeamEditorSheet(entries: _entries, initialSlots: initialSlots);
       },
     );
 
@@ -300,10 +309,27 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
     await _saveTeamMembers(team, result);
   }
 
-  Future<void> _saveTeamMembers(_PokemonTeamView team, List<String?> slots) async {
+  Future<void> _saveTeamMembers(
+    _PokemonTeamView team,
+    List<String?> slots,
+  ) async {
     setState(() => _savingTeam = true);
     try {
-      await _supabase.from('pokemon_team_members').delete().eq('team_id', team.id);
+      final selectedIds = slots
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList();
+      final uniqueSelectedIds = selectedIds.toSet();
+      if (selectedIds.length != uniqueSelectedIds.length) {
+        throw Exception(
+          'A Pokemon can only occupy one slot in the battle deck.',
+        );
+      }
+
+      await _supabase
+          .from('pokemon_team_members')
+          .delete()
+          .eq('team_id', team.id);
 
       final payload = <Map<String, dynamic>>[];
       for (var i = 0; i < slots.length; i++) {
@@ -321,17 +347,15 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Battle deck updated.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Battle deck updated.')));
       await _loadInventory();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            error.toString().replaceFirst('Exception: ', ''),
-          ),
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
       );
     } finally {
@@ -373,7 +397,10 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                       children: [
                         _DetailMeta(label: 'Name', value: entry.displayName),
                         _DetailMeta(label: 'Level', value: '${entry.level}'),
-                        _DetailMeta(label: 'XP', value: '${entry.xp}/${entry.xpGoal}'),
+                        _DetailMeta(
+                          label: 'XP',
+                          value: '${entry.xp}/${entry.xpGoal}',
+                        ),
                         _DetailMeta(
                           label: 'HP',
                           value: '${entry.currentHp}/${entry.pokemon.baseHp}',
@@ -566,11 +593,7 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                 ),
               ),
             ),
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _DeckTexturePainter(),
-              ),
-            ),
+            Positioned.fill(child: CustomPaint(painter: _DeckTexturePainter())),
             Positioned(
               top: AppSpacing.md,
               right: AppSpacing.md,
@@ -578,7 +601,9 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(999),
-                  onTap: _selectedTeam == null || _savingTeam ? null : _openTeamEditor,
+                  onTap: _selectedTeam == null || _savingTeam
+                      ? null
+                      : _openTeamEditor,
                   child: Padding(
                     padding: const EdgeInsets.all(AppSpacing.xs),
                     child: Icon(
@@ -622,10 +647,13 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         const spacing = AppSpacing.sm;
-                        final visibleCards = battleDeck.length > 5 ? 5 : battleDeck.length;
+                        final visibleCards = battleDeck.length > 5
+                            ? 5
+                            : battleDeck.length;
                         final cardWidth =
-                            (constraints.maxWidth - (spacing * (visibleCards - 1))) /
-                                visibleCards;
+                            (constraints.maxWidth -
+                                (spacing * (visibleCards - 1))) /
+                            visibleCards;
 
                         return Wrap(
                           spacing: spacing,
@@ -703,7 +731,8 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _typeFilters.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: AppSpacing.sm),
                     itemBuilder: (context, index) {
                       final filter = _typeFilters[index];
                       final isSelected = filter == _selectedTypeFilter;
@@ -776,7 +805,8 @@ class _PokemonsScreenState extends State<PokemonsScreen> {
                 if (columns > 4) columns = 4;
 
                 final cardWidth =
-                    (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+                    (constraints.maxWidth - (spacing * (columns - 1))) /
+                    columns;
 
                 return Wrap(
                   spacing: spacing,
@@ -882,10 +912,7 @@ class _SortDropdown extends StatelessWidget {
   final _SortMode value;
   final ValueChanged<_SortMode?> onChanged;
 
-  const _SortDropdown({
-    required this.value,
-    required this.onChanged,
-  });
+  const _SortDropdown({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -907,14 +934,8 @@ class _SortDropdown extends StatelessWidget {
           ),
           onChanged: onChanged,
           items: const [
-            DropdownMenuItem(
-              value: _SortMode.rarity,
-              child: Text('By Rarity'),
-            ),
-            DropdownMenuItem(
-              value: _SortMode.name,
-              child: Text('By Name'),
-            ),
+            DropdownMenuItem(value: _SortMode.rarity, child: Text('By Rarity')),
+            DropdownMenuItem(value: _SortMode.name, child: Text('By Name')),
           ],
         ),
       ),
@@ -926,10 +947,7 @@ class _InventorySwitcher extends StatelessWidget {
   final _InventorySection value;
   final ValueChanged<_InventorySection> onChanged;
 
-  const _InventorySwitcher({
-    required this.value,
-    required this.onChanged,
-  });
+  const _InventorySwitcher({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -1033,9 +1051,7 @@ class _DeckTexturePainter extends CustomPainter {
 class _HoverLiftCard extends StatefulWidget {
   final Widget child;
 
-  const _HoverLiftCard({
-    required this.child,
-  });
+  const _HoverLiftCard({required this.child});
 
   @override
   State<_HoverLiftCard> createState() => _HoverLiftCardState();
@@ -1063,10 +1079,7 @@ class _TeamEditorSheet extends StatefulWidget {
   final List<_OwnedPokemonEntry> entries;
   final List<String?> initialSlots;
 
-  const _TeamEditorSheet({
-    required this.entries,
-    required this.initialSlots,
-  });
+  const _TeamEditorSheet({required this.entries, required this.initialSlots});
 
   @override
   State<_TeamEditorSheet> createState() => _TeamEditorSheetState();
@@ -1121,7 +1134,8 @@ class _TeamEditorSheetState extends State<_TeamEditorSheet> {
                       setState(() => _slots[i] = value);
                     },
                   ),
-                  if (_slots[i] != null && entryByOwnedId[_slots[i]] != null) ...[
+                  if (_slots[i] != null &&
+                      entryByOwnedId[_slots[i]] != null) ...[
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       entryByOwnedId[_slots[i]]!.displayName,
@@ -1147,7 +1161,25 @@ class _TeamEditorSheetState extends State<_TeamEditorSheet> {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: FilledButton(
-                        onPressed: () => Navigator.of(context).pop(_slots),
+                        onPressed: () {
+                          final selectedIds = _slots
+                              .whereType<String>()
+                              .where((id) => id.isNotEmpty)
+                              .toList();
+                          if (selectedIds.length !=
+                              selectedIds.toSet().length) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Choose each Pokemon only once in the battle deck.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          Navigator.of(context).pop(_slots);
+                        },
                         child: Text(
                           'Save Deck',
                           style: AppTextStyles.button.copyWith(fontSize: 13),
@@ -1183,11 +1215,15 @@ class _TeamSlotDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentValue = value;
-    final availableEntries = entries.where((entry) {
-      return entry.ownedPokemonId == currentValue ||
-          !selectedIds.whereType<String>().contains(entry.ownedPokemonId);
-    }).toList()
-      ..sort((a, b) => a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
+    final availableEntries =
+        entries.where((entry) {
+          return entry.ownedPokemonId == currentValue ||
+              !selectedIds.whereType<String>().contains(entry.ownedPokemonId);
+        }).toList()..sort(
+          (a, b) => a.displayName.toLowerCase().compareTo(
+            b.displayName.toLowerCase(),
+          ),
+        );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -1232,10 +1268,7 @@ class _DetailMeta extends StatelessWidget {
   final String label;
   final String value;
 
-  const _DetailMeta({
-    required this.label,
-    required this.value,
-  });
+  const _DetailMeta({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -1285,11 +1318,10 @@ class _OwnedPokemonEntry {
     this.inDeck = false,
   });
 
-  String get displayName => nickname?.isNotEmpty == true ? nickname! : pokemon.name;
+  String get displayName =>
+      nickname?.isNotEmpty == true ? nickname! : pokemon.name;
 
-  _OwnedPokemonEntry copyWith({
-    bool? inDeck,
-  }) {
+  _OwnedPokemonEntry copyWith({bool? inDeck}) {
     return _OwnedPokemonEntry(
       ownedPokemonId: ownedPokemonId,
       pokemon: pokemon,
