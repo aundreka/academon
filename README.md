@@ -1,6 +1,6 @@
 # Academon
 
-A **gamified studying RPG** where learning isn't a chore—it's how you win.
+A **gamified studying RPG** where learning isn't a chore, it's how you win.
 
 Collect creatures, battle enemies through quizzes, and compete against other players in PvP. Every correct answer makes you stronger.
 
