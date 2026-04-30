@@ -23,7 +23,7 @@ class QwenQuestionService {
   // =========================
   static const String _qwenApiKey = String.fromEnvironment(
     'QWEN_API_KEY',
-    defaultValue: '',
+    defaultValue: 'AIzaSyCgn81LXH-pwnv6I9Fn0b7P3UzQWyxVxvY',
   );
 
   static const String _qwenBaseUrl = String.fromEnvironment(
